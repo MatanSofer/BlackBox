@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew:*)",
+      "WebSearch",
+      "WebFetch(domain:central.sonatype.com)"
+    ]
+  }
+}
