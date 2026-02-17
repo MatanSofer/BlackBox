@@ -1,4 +1,4 @@
-rootProject.name = "Kmpstealthapp"
+rootProject.name = "BlackBox"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
@@ -28,4 +28,5 @@ dependencyResolutionManagement {
     }
 }
 
-include(":composeApp")
+include(":shared")
+include(":androidApp")
