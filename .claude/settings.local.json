@@ -3,7 +3,8 @@
     "allow": [
       "Bash(./gradlew:*)",
       "WebSearch",
-      "WebFetch(domain:central.sonatype.com)"
+      "WebFetch(domain:central.sonatype.com)",
+      "Bash(xargs ls:*)"
     ]
   }
 }

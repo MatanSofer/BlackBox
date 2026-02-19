@@ -1,16 +1,3 @@
 <resources>
     <string name="app_name">BlackBox</string>
-
-    <!-- Bottom Navigation -->
-    <string name="tab_search">Search</string>
-    <string name="tab_timeline">Timeline</string>
-    <string name="tab_map">Map</string>
-    <string name="tab_insights">Insights</string>
-    <string name="tab_settings">Settings</string>
-
-    <!-- Common -->
-    <string name="error_title">Something went wrong</string>
-    <string name="retry">Retry</string>
-    <string name="empty_title">No Data Yet</string>
-    <string name="empty_message">Nothing to show here yet.</string>
 </resources>

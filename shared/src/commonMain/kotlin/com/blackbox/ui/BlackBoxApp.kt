@@ -1,0 +1,81 @@
+package com.blackbox.ui
+
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import blackbox.shared.generated.resources.Res
+import blackbox.shared.generated.resources.tab_insights
+import blackbox.shared.generated.resources.tab_map
+import blackbox.shared.generated.resources.tab_search
+import blackbox.shared.generated.resources.tab_settings
+import blackbox.shared.generated.resources.tab_timeline
+import com.blackbox.ui.navigation.BlackBoxBottomBar
+import com.blackbox.ui.navigation.BlackBoxNavHost
+import com.blackbox.ui.navigation.Screen
+import com.blackbox.ui.navigation.defaultBottomNavItems
+import org.jetbrains.compose.resources.stringResource
+
+/**
+ * Root composable for the BlackBox app.
+ *
+ * Manages the [NavController][androidx.navigation.NavController],
+ * bottom navigation state, and wires the [BlackBoxNavHost] with
+ * the [BlackBoxBottomBar]. Lives in the shared module so it can
+ * be reused across platforms (Android, iOS).
+ */
+@Composable
+fun BlackBoxApp() {
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    val bottomNavItems = defaultBottomNavItems(
+        searchLabel = stringResource(Res.string.tab_search),
+        timelineLabel = stringResource(Res.string.tab_timeline),
+        mapLabel = stringResource(Res.string.tab_map),
+        insightsLabel = stringResource(Res.string.tab_insights),
+        settingsLabel = stringResource(Res.string.tab_settings),
+    )
+
+    // Only show bottom bar on primary tab screens
+    val primaryRoutes = setOf(
+        Screen.Search.route,
+        Screen.Timeline.route,
+        Screen.Map.route,
+        Screen.Insights.route,
+        Screen.Settings.route,
+    )
+    val showBottomBar = currentRoute in primaryRoutes
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        bottomBar = {
+            if (showBottomBar) {
+                BlackBoxBottomBar(
+                    currentRoute = currentRoute,
+                    onTabSelected = { route ->
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    items = bottomNavItems,
+                )
+            }
+        },
+    ) { innerPadding ->
+        BlackBoxNavHost(
+            navController = navController,
+            modifier = Modifier.padding(innerPadding),
+        )
+    }
+}

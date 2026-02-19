@@ -1,4 +1,4 @@
-package com.blackbox.android.ui.navigation
+package com.blackbox.ui.navigation
 
 /**
  * Sealed class defining all navigation destinations in the app.

@@ -1,4 +1,4 @@
-package com.blackbox.android.ui.common
+package com.blackbox.ui.common
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -15,28 +15,31 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import com.blackbox.android.R
-import com.blackbox.android.ui.theme.BlackBoxTheme
-import com.blackbox.android.ui.theme.Dimens
+import com.blackbox.ui.theme.BlackBoxTheme
+import com.blackbox.ui.theme.Dimens
 
 /**
- * Full-screen error view with icon, message, and optional retry button.
+ * Full-screen empty state view.
  *
- * Displays a warning icon, error title, descriptive message,
- * and a retry button when [onRetry] is provided.
+ * Displays a centered illustration (icon), title, descriptive message,
+ * and an optional call-to-action button. Used across all screens when
+ * there is no data to display.
  *
- * @param message The human-readable error message to display.
+ * @param title The empty state title (e.g., "No Data Yet").
+ * @param message The context-specific description explaining why there is no data.
  * @param modifier Optional [Modifier] for the container.
- * @param onRetry Optional callback for the retry button. If null, the button is hidden.
+ * @param actionLabel Optional label for the CTA button.
+ * @param onAction Optional callback for the CTA button. If null, the button is hidden.
  */
 @Composable
-fun ErrorView(
+fun EmptyStateView(
+    title: String,
     message: String,
     modifier: Modifier = Modifier,
-    onRetry: (() -> Unit)? = null,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -44,16 +47,16 @@ fun ErrorView(
         modifier = modifier.fillMaxSize(),
     ) {
         Icon(
-            imageVector = Icons.Default.Warning,
+            imageVector = Icons.Default.Info,
             contentDescription = null,
             modifier = Modifier.size(Dimens.IconXl),
-            tint = MaterialTheme.colorScheme.error,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         Spacer(modifier = Modifier.height(Dimens.SpacingLg))
 
         Text(
-            text = stringResource(R.string.error_title),
+            text = title,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
@@ -67,11 +70,11 @@ fun ErrorView(
             textAlign = TextAlign.Center,
         )
 
-        if (onRetry != null) {
+        if (actionLabel != null && onAction != null) {
             Spacer(modifier = Modifier.height(Dimens.SpacingXl))
 
-            Button(onClick = onRetry) {
-                Text(text = stringResource(R.string.retry))
+            Button(onClick = onAction) {
+                Text(text = actionLabel)
             }
         }
     }
@@ -79,21 +82,24 @@ fun ErrorView(
 
 @Preview(showBackground = true)
 @Composable
-private fun ErrorViewWithRetryPreview() {
+private fun EmptyStateViewPreview() {
     BlackBoxTheme {
-        ErrorView(
-            message = "Unable to load data. Please check your connection.",
-            onRetry = {},
+        EmptyStateView(
+            title = "No Data Yet",
+            message = "BlackBox hasn't collected any data yet. Check back later.",
         )
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-private fun ErrorViewNoRetryPreview() {
+private fun EmptyStateViewWithActionPreview() {
     BlackBoxTheme {
-        ErrorView(
-            message = "An unexpected error occurred.",
+        EmptyStateView(
+            title = "No Data Yet",
+            message = "Start recording to see your data here.",
+            actionLabel = "Start Recording",
+            onAction = {},
         )
     }
 }

@@ -1,4 +1,4 @@
-package com.blackbox.android.ui.navigation
+package com.blackbox.ui.navigation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize

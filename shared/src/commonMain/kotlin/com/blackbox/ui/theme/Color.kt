@@ -1,4 +1,4 @@
-package com.blackbox.android.ui.theme
+package com.blackbox.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

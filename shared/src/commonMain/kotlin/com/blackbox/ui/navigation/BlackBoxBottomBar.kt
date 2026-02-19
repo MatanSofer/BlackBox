@@ -1,4 +1,4 @@
-package com.blackbox.android.ui.navigation
+package com.blackbox.ui.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
@@ -13,7 +13,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.blackbox.android.ui.theme.Dimens
 
 /**
  * Represents a tab item in the bottom navigation bar.
@@ -66,8 +65,11 @@ fun BlackBoxBottomBar(
 /**
  * Creates the default list of bottom navigation items.
  *
- * Uses string labels directly here; these will be replaced with
- * `stringResource()` calls when wired into the actual screen composable.
+ * @param searchLabel Label for the Search tab.
+ * @param timelineLabel Label for the Timeline tab.
+ * @param mapLabel Label for the Map tab.
+ * @param insightsLabel Label for the Insights tab.
+ * @param settingsLabel Label for the Settings tab.
  */
 fun defaultBottomNavItems(
     searchLabel: String,

@@ -1,4 +1,4 @@
-package com.blackbox.android.ui.common
+package com.blackbox.ui.common
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,8 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.blackbox.android.ui.theme.BlackBoxTheme
-import com.blackbox.android.ui.theme.Dimens
+import com.blackbox.ui.theme.BlackBoxTheme
+import com.blackbox.ui.theme.Dimens
 
 /**
  * Centered circular loading indicator.
