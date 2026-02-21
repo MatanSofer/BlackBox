@@ -1,5 +1,7 @@
 package com.blackbox.domain.model.timeline
 
+import kotlinx.serialization.Serializable
+
 /**
  * Pre-computed aggregation of a single day's collected data.
  *
@@ -62,6 +64,7 @@ data class DailySummary(
  * @property displayName Human-readable app name.
  * @property usageMinutes Total foreground usage in minutes.
  */
+@Serializable
 data class AppUsageSummary(
     val packageName: String,
     val displayName: String,
@@ -79,6 +82,7 @@ data class AppUsageSummary(
  * @property arrivedAt Arrival timestamp (epoch ms).
  * @property departedAt Departure timestamp (epoch ms).
  */
+@Serializable
 data class VisitedLocation(
     val placeId: Long? = null,
     val name: String,

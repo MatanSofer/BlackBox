@@ -1,5 +1,7 @@
 package com.blackbox.domain.model.record
 
+import kotlinx.serialization.Serializable
+
 /**
  * Activity recognition data from the motion collector.
  *
@@ -14,6 +16,7 @@ package com.blackbox.domain.model.record
  * @property stepCountDelta Steps taken since the last collection cycle.
  * @property movementIntensity Normalized intensity score (0.0 to 1.0).
  */
+@Serializable
 data class ActivityData(
     val detectedActivity: ActivityType,
     val confidence: Int,
@@ -29,6 +32,7 @@ data class ActivityData(
  * @property type The detected activity type.
  * @property confidence Confidence percentage (0-100).
  */
+@Serializable
 data class DetectedActivity(
     val type: ActivityType,
     val confidence: Int,

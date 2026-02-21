@@ -1,5 +1,7 @@
 package com.blackbox.domain.model.record
 
+import kotlinx.serialization.Serializable
+
 /**
  * WiFi environment data captured by the WiFi collector.
  *
@@ -14,6 +16,7 @@ package com.blackbox.domain.model.record
  * @property nearbyNetworks List of visible networks for fingerprinting.
  * @property networkCount Total number of visible networks.
  */
+@Serializable
 data class WifiData(
     val connectedSsid: String? = null,
     val connectedBssid: String? = null,
@@ -30,6 +33,7 @@ data class WifiData(
  * @property bssid Access point MAC address.
  * @property rssi Received signal strength indicator in dBm.
  */
+@Serializable
 data class NearbyNetwork(
     val ssid: String,
     val bssid: String,

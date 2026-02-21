@@ -1,5 +1,7 @@
 package com.blackbox.domain.model.record
 
+import kotlinx.serialization.Serializable
+
 /**
  * Ambient light level data captured by the light collector.
  *
@@ -10,6 +12,7 @@ package com.blackbox.domain.model.record
  * @property lux Light intensity in lux.
  * @property classification Categorized light level.
  */
+@Serializable
 data class LightData(
     val lux: Float,
     val classification: LightClassification,

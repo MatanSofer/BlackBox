@@ -1,0 +1,424 @@
+-- ============================================================
+-- BlackBox Database Schema
+-- ============================================================
+
+-- The master table for all collected data points.
+CREATE TABLE BlackBoxRecord (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp INTEGER NOT NULL,
+    collector_type TEXT NOT NULL,
+    data_json TEXT NOT NULL,
+    accuracy_score REAL NOT NULL DEFAULT 1.0,
+    session_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_record_timestamp ON BlackBoxRecord(timestamp);
+CREATE INDEX idx_record_collector_time ON BlackBoxRecord(collector_type, timestamp);
+CREATE INDEX idx_record_session ON BlackBoxRecord(session_id);
+CREATE INDEX idx_record_created ON BlackBoxRecord(created_at);
+
+-- Denormalized location data for fast spatial and temporal queries.
+CREATE TABLE LocationRecord (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    record_id INTEGER NOT NULL REFERENCES BlackBoxRecord(id) ON DELETE CASCADE,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    altitude REAL,
+    accuracy_meters REAL,
+    speed REAL,
+    bearing REAL,
+    source TEXT NOT NULL,
+    timestamp INTEGER NOT NULL
+);
+
+CREATE INDEX idx_location_timestamp ON LocationRecord(timestamp);
+CREATE INDEX idx_location_coords ON LocationRecord(latitude, longitude);
+CREATE INDEX idx_location_record_id ON LocationRecord(record_id);
+
+-- Pre-computed summary for each day.
+CREATE TABLE DailySummary (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL UNIQUE,
+    total_steps INTEGER NOT NULL DEFAULT 0,
+    total_distance_meters REAL NOT NULL DEFAULT 0.0,
+    time_at_home_minutes INTEGER NOT NULL DEFAULT 0,
+    time_at_work_minutes INTEGER NOT NULL DEFAULT 0,
+    time_in_transit_minutes INTEGER NOT NULL DEFAULT 0,
+    screen_on_count INTEGER NOT NULL DEFAULT 0,
+    total_screen_time_minutes INTEGER NOT NULL DEFAULT 0,
+    most_used_apps TEXT NOT NULL DEFAULT '[]',
+    locations_visited TEXT NOT NULL DEFAULT '[]',
+    activity_breakdown TEXT NOT NULL DEFAULT '{}',
+    noise_avg_db REAL,
+    first_screen_on INTEGER,
+    last_screen_off INTEGER,
+    sleep_start_estimate INTEGER,
+    sleep_end_estimate INTEGER,
+    day_hash TEXT,
+    previous_day_hash TEXT,
+    summary_text TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_summary_date ON DailySummary(date);
+
+-- A meaningful location that the user visits regularly.
+CREATE TABLE KnownPlace (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    radius_meters REAL NOT NULL DEFAULT 100.0,
+    wifi_fingerprint TEXT,
+    category TEXT NOT NULL DEFAULT 'OTHER',
+    visit_count INTEGER NOT NULL DEFAULT 0,
+    total_time_minutes INTEGER NOT NULL DEFAULT 0,
+    first_visit INTEGER,
+    last_visit INTEGER,
+    is_auto_detected INTEGER NOT NULL DEFAULT 1,
+    is_hidden INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_place_coords ON KnownPlace(latitude, longitude);
+CREATE INDEX idx_place_category ON KnownPlace(category);
+
+-- A significant event derived from analyzing raw data.
+CREATE TABLE DerivedEvent (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp INTEGER NOT NULL,
+    event_type TEXT NOT NULL,
+    description TEXT NOT NULL,
+    place_id INTEGER REFERENCES KnownPlace(id) ON DELETE SET NULL,
+    metadata_json TEXT,
+    confidence REAL NOT NULL DEFAULT 1.0,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_event_timestamp ON DerivedEvent(timestamp);
+CREATE INDEX idx_event_type_time ON DerivedEvent(event_type, timestamp);
+CREATE INDEX idx_event_place ON DerivedEvent(place_id);
+
+-- User preferences per collector.
+CREATE TABLE CollectorSetting (
+    collector_type TEXT PRIMARY KEY,
+    is_enabled INTEGER NOT NULL DEFAULT 1,
+    collection_interval_ms INTEGER NOT NULL,
+    custom_config_json TEXT,
+    updated_at INTEGER NOT NULL
+);
+
+-- Recent search queries.
+CREATE TABLE RecentQuery (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    query_text TEXT NOT NULL,
+    intent_type TEXT,
+    executed_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_recent_query_time ON RecentQuery(executed_at DESC);
+
+-- Cached app metadata.
+CREATE TABLE AppInfo (
+    package_name TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT 'OTHER',
+    is_system_app INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL
+);
+
+-- ============================================================
+-- Record Queries
+-- ============================================================
+
+insertRecord:
+INSERT INTO BlackBoxRecord (timestamp, collector_type, data_json, accuracy_score, session_id, created_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+lastInsertRecordId:
+SELECT last_insert_rowid();
+
+getRecordsByTypeInRange:
+SELECT * FROM BlackBoxRecord
+WHERE collector_type = ?
+  AND timestamp BETWEEN ? AND ?
+ORDER BY timestamp ASC;
+
+getAllRecordsInRange:
+SELECT * FROM BlackBoxRecord
+WHERE timestamp BETWEEN ? AND ?
+ORDER BY timestamp ASC;
+
+countByCollector:
+SELECT collector_type, COUNT(*) AS record_count
+FROM BlackBoxRecord
+GROUP BY collector_type;
+
+deleteOlderThan:
+DELETE FROM BlackBoxRecord
+WHERE created_at < ?;
+
+getTotalRecordCount:
+SELECT COUNT(*) FROM BlackBoxRecord;
+
+-- ============================================================
+-- Location Queries
+-- ============================================================
+
+insertLocation:
+INSERT INTO LocationRecord (record_id, latitude, longitude, altitude, accuracy_meters, speed, bearing, source, timestamp)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+getLocationsInRange:
+SELECT * FROM LocationRecord
+WHERE timestamp BETWEEN ? AND ?
+ORDER BY timestamp ASC;
+
+getLocationAt:
+SELECT * FROM LocationRecord
+WHERE timestamp BETWEEN (? - ?) AND (? + ?)
+ORDER BY ABS(timestamp - ?)
+LIMIT 1;
+
+getLastKnownLocation:
+SELECT * FROM LocationRecord
+ORDER BY timestamp DESC
+LIMIT 1;
+
+getLocationsInBoundingBox:
+SELECT * FROM LocationRecord
+WHERE latitude BETWEEN ? AND ?
+  AND longitude BETWEEN ? AND ?
+  AND timestamp BETWEEN ? AND ?
+ORDER BY timestamp ASC;
+
+deleteLocationsInRange:
+DELETE FROM LocationRecord
+WHERE timestamp BETWEEN ? AND ?;
+
+-- ============================================================
+-- Daily Summary Queries
+-- ============================================================
+
+insertSummary:
+INSERT INTO DailySummary (date, total_steps, total_distance_meters, time_at_home_minutes, time_at_work_minutes, time_in_transit_minutes, screen_on_count, total_screen_time_minutes, most_used_apps, locations_visited, activity_breakdown, noise_avg_db, first_screen_on, last_screen_off, sleep_start_estimate, sleep_end_estimate, day_hash, previous_day_hash, summary_text, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateSummary:
+UPDATE DailySummary SET
+    total_steps = ?,
+    total_distance_meters = ?,
+    time_at_home_minutes = ?,
+    time_at_work_minutes = ?,
+    time_in_transit_minutes = ?,
+    screen_on_count = ?,
+    total_screen_time_minutes = ?,
+    most_used_apps = ?,
+    locations_visited = ?,
+    activity_breakdown = ?,
+    noise_avg_db = ?,
+    first_screen_on = ?,
+    last_screen_off = ?,
+    sleep_start_estimate = ?,
+    sleep_end_estimate = ?,
+    day_hash = ?,
+    previous_day_hash = ?,
+    summary_text = ?,
+    updated_at = ?
+WHERE date = ?;
+
+getSummaryForDate:
+SELECT * FROM DailySummary
+WHERE date = ?;
+
+getSummariesInRange:
+SELECT * FROM DailySummary
+WHERE date BETWEEN ? AND ?
+ORDER BY date ASC;
+
+getStepTrend:
+SELECT date, total_steps
+FROM DailySummary
+WHERE date BETWEEN ? AND ?
+ORDER BY date ASC;
+
+getScreenTimeTrend:
+SELECT date, total_screen_time_minutes, screen_on_count
+FROM DailySummary
+WHERE date BETWEEN ? AND ?
+ORDER BY date ASC;
+
+getAverageWakeTime:
+SELECT AVG(sleep_end_estimate) AS avg_wake_time
+FROM DailySummary
+WHERE sleep_end_estimate IS NOT NULL
+  AND date BETWEEN ? AND ?;
+
+getAverageSleepTime:
+SELECT AVG(sleep_start_estimate) AS avg_sleep_time
+FROM DailySummary
+WHERE sleep_start_estimate IS NOT NULL
+  AND date BETWEEN ? AND ?;
+
+-- ============================================================
+-- Known Place Queries
+-- ============================================================
+
+insertPlace:
+INSERT INTO KnownPlace (name, latitude, longitude, radius_meters, wifi_fingerprint, category, visit_count, total_time_minutes, first_visit, last_visit, is_auto_detected, is_hidden, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+lastInsertPlaceId:
+SELECT last_insert_rowid();
+
+updatePlace:
+UPDATE KnownPlace SET
+    name = ?,
+    latitude = ?,
+    longitude = ?,
+    radius_meters = ?,
+    wifi_fingerprint = ?,
+    category = ?,
+    is_auto_detected = ?,
+    is_hidden = ?,
+    updated_at = ?
+WHERE id = ?;
+
+getAllPlaces:
+SELECT * FROM KnownPlace
+WHERE is_hidden = 0
+ORDER BY visit_count DESC;
+
+getAllPlacesIncludingHidden:
+SELECT * FROM KnownPlace
+ORDER BY visit_count DESC;
+
+getPlaceById:
+SELECT * FROM KnownPlace
+WHERE id = ?;
+
+findNearestPlace:
+SELECT *,
+    (latitude - ?) * (latitude - ?) +
+    (longitude - ?) * (longitude - ?) AS distance_squared
+FROM KnownPlace
+WHERE is_hidden = 0
+ORDER BY distance_squared ASC
+LIMIT 1;
+
+getPlacesByCategory:
+SELECT * FROM KnownPlace
+WHERE category = ? AND is_hidden = 0
+ORDER BY visit_count DESC;
+
+incrementVisitCount:
+UPDATE KnownPlace
+SET visit_count = visit_count + 1,
+    last_visit = ?,
+    updated_at = ?
+WHERE id = ?;
+
+hidePlace:
+UPDATE KnownPlace
+SET is_hidden = 1, updated_at = ?
+WHERE id = ?;
+
+deletePlace:
+DELETE FROM KnownPlace WHERE id = ?;
+
+-- ============================================================
+-- Derived Event Queries
+-- ============================================================
+
+insertEvent:
+INSERT INTO DerivedEvent (timestamp, event_type, description, place_id, metadata_json, confidence, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+getEventsInRange:
+SELECT de.*, kp.name AS place_name, kp.category AS place_category
+FROM DerivedEvent de
+LEFT JOIN KnownPlace kp ON de.place_id = kp.id
+WHERE de.timestamp BETWEEN ? AND ?
+ORDER BY de.timestamp ASC;
+
+getPlaceEvents:
+SELECT * FROM DerivedEvent
+WHERE place_id = ?
+  AND event_type IN ('ARRIVED', 'DEPARTED')
+ORDER BY timestamp DESC
+LIMIT ?;
+
+getLatestEventOfType:
+SELECT de.*, kp.name AS place_name, kp.category AS place_category
+FROM DerivedEvent de
+LEFT JOIN KnownPlace kp ON de.place_id = kp.id
+WHERE de.event_type = ?
+ORDER BY de.timestamp DESC
+LIMIT 1;
+
+getSleepEvents:
+SELECT * FROM DerivedEvent
+WHERE event_type IN ('SLEEP_START', 'SLEEP_END')
+  AND timestamp BETWEEN ? AND ?
+ORDER BY timestamp ASC;
+
+-- ============================================================
+-- Collector Setting Queries
+-- ============================================================
+
+insertSetting:
+INSERT OR REPLACE INTO CollectorSetting (collector_type, is_enabled, collection_interval_ms, custom_config_json, updated_at)
+VALUES (?, ?, ?, ?, ?);
+
+getAllSettings:
+SELECT * FROM CollectorSetting;
+
+getSettingForCollector:
+SELECT * FROM CollectorSetting
+WHERE collector_type = ?;
+
+setCollectorEnabled:
+UPDATE CollectorSetting
+SET is_enabled = ?, updated_at = ?
+WHERE collector_type = ?;
+
+setCollectionInterval:
+UPDATE CollectorSetting
+SET collection_interval_ms = ?, updated_at = ?
+WHERE collector_type = ?;
+
+-- ============================================================
+-- Recent Query Queries
+-- ============================================================
+
+insertQuery:
+INSERT INTO RecentQuery (query_text, intent_type, executed_at)
+VALUES (?, ?, ?);
+
+getRecentQueries:
+SELECT * FROM RecentQuery
+ORDER BY executed_at DESC
+LIMIT ?;
+
+cleanupOldQueries:
+DELETE FROM RecentQuery
+WHERE id NOT IN (
+    SELECT id FROM RecentQuery ORDER BY executed_at DESC LIMIT ?
+);
+
+-- ============================================================
+-- App Info Queries
+-- ============================================================
+
+insertOrUpdateAppInfo:
+INSERT OR REPLACE INTO AppInfo (package_name, display_name, category, is_system_app, updated_at)
+VALUES (?, ?, ?, ?, ?);
+
+getAppInfo:
+SELECT * FROM AppInfo WHERE package_name = ?;
+
+getAllAppInfo:
+SELECT * FROM AppInfo ORDER BY display_name ASC;

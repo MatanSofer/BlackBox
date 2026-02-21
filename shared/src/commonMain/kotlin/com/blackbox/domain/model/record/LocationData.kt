@@ -1,5 +1,7 @@
 package com.blackbox.domain.model.record
 
+import kotlinx.serialization.Serializable
+
 /**
  * Location data captured by the location collector.
  *
@@ -16,6 +18,7 @@ package com.blackbox.domain.model.record
  * @property source How this location was determined.
  * @property providerDetails Additional provider info (e.g., "gps+wifi").
  */
+@Serializable
 data class LocationData(
     val latitude: Double,
     val longitude: Double,

@@ -1,5 +1,7 @@
 package com.blackbox.domain.model.record
 
+import kotlinx.serialization.Serializable
+
 /**
  * Ambient audio level data captured by the audio level collector.
  *
@@ -14,6 +16,7 @@ package com.blackbox.domain.model.record
  * @property highHz Normalized energy in high frequency band (0.0-1.0).
  * @property sampleDurationMs Duration of the audio sample in milliseconds.
  */
+@Serializable
 data class AudioLevelData(
     val dbLevel: Float,
     val classification: NoiseClassification,

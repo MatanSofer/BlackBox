@@ -1,5 +1,7 @@
 package com.blackbox.domain.model.record
 
+import kotlinx.serialization.Serializable
+
 /**
  * Network and Bluetooth connectivity data.
  *
@@ -16,6 +18,7 @@ package com.blackbox.domain.model.record
  * @property connectedBtDevices List of connected Bluetooth devices.
  * @property isVpnActive Whether a VPN connection is active.
  */
+@Serializable
 data class ConnectivityData(
     val networkType: NetworkType,
     val wifiConnected: Boolean = false,
@@ -43,6 +46,7 @@ enum class NetworkType {
  * @property name Device display name.
  * @property type Device category.
  */
+@Serializable
 data class BluetoothDevice(
     val name: String,
     val type: BluetoothDeviceType,

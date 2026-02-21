@@ -1,5 +1,7 @@
 package com.blackbox.domain.model.record
 
+import kotlinx.serialization.Serializable
+
 /**
  * App usage data captured by the app usage collector.
  *
@@ -14,6 +16,7 @@ package com.blackbox.domain.model.record
  * @property sessionDurationMs How long the app was in the foreground.
  * @property isSystemApp Whether this is a pre-installed system app.
  */
+@Serializable
 data class AppUsageData(
     val foregroundApp: String,
     val displayName: String,

@@ -1,5 +1,7 @@
 package com.blackbox.domain.model.record
 
+import kotlinx.serialization.Serializable
+
 /**
  * Atmospheric pressure data captured by the barometer collector.
  *
@@ -11,6 +13,7 @@ package com.blackbox.domain.model.record
  * @property altitudeChangeSinceLast Altitude change since the previous reading.
  * @property estimatedFloorChange Estimated number of floors moved since last reading.
  */
+@Serializable
 data class BarometerData(
     val pressureHpa: Float,
     val relativeAltitudeMeters: Float? = null,

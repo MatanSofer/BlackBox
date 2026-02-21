@@ -1,5 +1,7 @@
 package com.blackbox.domain.model.record
 
+import kotlinx.serialization.Serializable
+
 /**
  * Screen state data captured by the screen state collector.
  *
@@ -12,6 +14,7 @@ package com.blackbox.domain.model.record
  * @property orientation Current device orientation.
  * @property isInteractive Whether the screen is currently interactive.
  */
+@Serializable
 data class ScreenStateData(
     val state: ScreenState,
     val brightness: Int? = null,

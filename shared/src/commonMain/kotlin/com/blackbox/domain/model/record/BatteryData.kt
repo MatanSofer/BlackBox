@@ -1,5 +1,7 @@
 package com.blackbox.domain.model.record
 
+import kotlinx.serialization.Serializable
+
 /**
  * Battery state data captured by the battery collector.
  *
@@ -13,6 +15,7 @@ package com.blackbox.domain.model.record
  * @property voltageMv Battery voltage in millivolts.
  * @property health Battery health status.
  */
+@Serializable
 data class BatteryData(
     val levelPercent: Int,
     val status: BatteryStatus,
