@@ -1,5 +1,7 @@
 package com.blackbox.android.di
 
+import com.blackbox.android.security.BiometricManager
+import com.blackbox.android.security.KeyManager
 import com.blackbox.android.util.AndroidLogger
 import com.blackbox.domain.util.BlackBoxLogger
 import org.koin.dsl.module
@@ -7,10 +9,12 @@ import org.koin.dsl.module
 /**
  * Koin module providing application-wide singletons.
  *
- * Currently provides the [BlackBoxLogger] implementation.
+ * Provides the logger, key manager, and biometric manager.
  */
 val appModule = module {
     single<BlackBoxLogger> { AndroidLogger() }
+    single { KeyManager(get()) }
+    single { BiometricManager(get()) }
 }
 
 /**
