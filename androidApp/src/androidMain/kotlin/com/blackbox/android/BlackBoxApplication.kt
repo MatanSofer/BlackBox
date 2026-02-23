@@ -2,6 +2,8 @@ package com.blackbox.android
 
 import android.app.Application
 import com.blackbox.android.di.appModules
+import com.blackbox.android.worker.CleanupWorker
+import com.blackbox.android.worker.DailySummaryWorker
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
@@ -9,8 +11,9 @@ import org.koin.core.context.startKoin
 /**
  * Application class for BlackBox.
  *
- * Initializes Koin dependency injection on startup, providing
- * the Android application context and registering all DI modules.
+ * Initializes Koin dependency injection on startup, provides
+ * the Android application context, registers all DI modules,
+ * and schedules periodic background workers.
  */
 class BlackBoxApplication : Application() {
 
@@ -22,5 +25,16 @@ class BlackBoxApplication : Application() {
             androidContext(this@BlackBoxApplication)
             modules(appModules)
         }
+
+        scheduleWorkers()
+    }
+
+    /**
+     * Schedules periodic WorkManager jobs for daily summary
+     * generation and data retention cleanup.
+     */
+    private fun scheduleWorkers() {
+        DailySummaryWorker.schedule(this)
+        CleanupWorker.schedule(this)
     }
 }
