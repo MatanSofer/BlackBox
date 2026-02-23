@@ -31,4 +31,16 @@
     <!-- Settings Screen -->
     <string name="settings_collectors_title">Data Collectors</string>
     <string name="settings_interval">Every %1$d seconds</string>
+
+    <!-- Onboarding Screen -->
+    <string name="onboarding_p1_title">Welcome to BlackBox</string>
+    <string name="onboarding_p1_desc">Your personal life flight recorder. BlackBox passively captures context from your device — never content — so you can search your day with natural language.</string>
+    <string name="onboarding_p2_title">Permissions Needed</string>
+    <string name="onboarding_p2_desc">BlackBox needs a few permissions to record your context. All data stays on your device — nothing is ever uploaded.</string>
+    <string name="onboarding_p3_title">You\'re All Set</string>
+    <string name="onboarding_p3_desc">BlackBox will now quietly record your context in the background. Ask it anything — \"Where was I yesterday?\" or \"How many steps this week?\"</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_get_started">Get Started</string>
 </resources>

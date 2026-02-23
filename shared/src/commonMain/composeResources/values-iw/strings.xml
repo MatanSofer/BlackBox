@@ -31,4 +31,16 @@
     <!-- Settings Screen -->
     <string name="settings_collectors_title">אספני נתונים</string>
     <string name="settings_interval">כל %1$d שניות</string>
+
+    <!-- Onboarding Screen -->
+    <string name="onboarding_p1_title">ברוכים הבאים ל-BlackBox</string>
+    <string name="onboarding_p1_desc">מקליט הטיסה האישי שלך. BlackBox מתעד הקשר מהמכשיר שלך באופן פסיבי — אף פעם לא תוכן — כדי שתוכל לחפש את היום שלך בשפה טבעית.</string>
+    <string name="onboarding_p2_title">נדרשות הרשאות</string>
+    <string name="onboarding_p2_desc">BlackBox זקוק למספר הרשאות כדי לתעד את ההקשר שלך. כל הנתונים נשארים במכשיר — שום דבר לא נשלח החוצה.</string>
+    <string name="onboarding_p3_title">הכל מוכן</string>
+    <string name="onboarding_p3_desc">BlackBox יתעד בשקט את ההקשר שלך ברקע. שאל אותו כל דבר — \"איפה הייתי אתמול?\" או \"כמה צעדים השבוע?\"</string>
+    <string name="onboarding_next">הבא</string>
+    <string name="onboarding_back">חזרה</string>
+    <string name="onboarding_skip">דלג</string>
+    <string name="onboarding_get_started">בוא נתחיל</string>
 </resources>

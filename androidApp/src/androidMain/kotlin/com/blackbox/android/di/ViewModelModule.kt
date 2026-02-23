@@ -2,6 +2,7 @@ package com.blackbox.android.di
 
 import com.blackbox.ui.insights.InsightsViewModel
 import com.blackbox.ui.map.MapViewModel
+import com.blackbox.ui.onboarding.OnboardingViewModel
 import com.blackbox.ui.search.SearchViewModel
 import com.blackbox.ui.settings.SettingsViewModel
 import com.blackbox.ui.timeline.TimelineViewModel
@@ -20,4 +21,5 @@ val viewModelModule = module {
     viewModel { InsightsViewModel(get()) }
     viewModel { MapViewModel(get()) }
     viewModel { SettingsViewModel(get(), get()) }
+    viewModel { OnboardingViewModel(get()) }
 }
