@@ -1,5 +1,6 @@
 package com.blackbox.android.di
 
+import com.blackbox.domain.usecase.record.SaveLocationRecordUseCase
 import com.blackbox.domain.usecase.record.SaveRecordUseCase
 import org.koin.dsl.module
 
@@ -8,4 +9,5 @@ import org.koin.dsl.module
  */
 val useCaseModule = module {
     single { SaveRecordUseCase(get(), get()) }
+    single { SaveLocationRecordUseCase(get(), get(), get()) }
 }

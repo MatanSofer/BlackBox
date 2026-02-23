@@ -53,6 +53,23 @@ class RecordRepositoryImpl(
         }
     }
 
+    override suspend fun saveRecordAndGetId(record: CollectedRecord): Long {
+        return withContext(Dispatchers.IO) {
+            logger.d(TAG, "Saving record and retrieving ID: type=${record.collectorType}")
+            database.blackBoxDatabaseQueries.transactionWithResult {
+                database.blackBoxDatabaseQueries.insertRecord(
+                    timestamp = record.timestamp,
+                    collector_type = record.collectorType.name,
+                    data_json = RecordMapper.serializeData(record.data),
+                    accuracy_score = record.accuracyScore.toDouble(),
+                    session_id = record.sessionId,
+                    created_at = record.createdAt,
+                )
+                database.blackBoxDatabaseQueries.lastInsertRecordId().executeAsOne()
+            }
+        }
+    }
+
     override suspend fun getRecordsInRange(startTime: Long, endTime: Long): List<CollectedRecord> {
         return withContext(Dispatchers.IO) {
             logger.d(TAG, "Fetching records in range: $startTime..$endTime")

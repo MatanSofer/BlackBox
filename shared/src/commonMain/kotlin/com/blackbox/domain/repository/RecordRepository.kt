@@ -33,6 +33,17 @@ interface RecordRepository {
     /** Returns record counts grouped by collector type. */
     suspend fun getCountByCollector(): Map<CollectorType, Long>
 
+    /**
+     * Persists a new record and returns its auto-generated database ID.
+     *
+     * Used when a denormalized entry (e.g., LocationRecord) needs to
+     * reference the parent BlackBoxRecord via a foreign key.
+     *
+     * @param record The record to persist.
+     * @return The auto-generated primary key of the inserted record.
+     */
+    suspend fun saveRecordAndGetId(record: CollectedRecord): Long
+
     /** Deletes all records older than the given timestamp. */
     suspend fun deleteRecordsOlderThan(cutoffTimestamp: Long)
 }
