@@ -2,6 +2,7 @@ package com.blackbox.android.di
 
 import com.blackbox.android.collector.ActivityCollector
 import com.blackbox.android.collector.LocationCollector
+import com.blackbox.android.collector.WifiCollector
 import com.blackbox.android.collector.base.CollectorOrchestrator
 import com.blackbox.android.collector.base.RecordBatcher
 import org.koin.android.ext.koin.androidContext
@@ -17,10 +18,12 @@ val collectorModule = module {
     single { RecordBatcher(get(), get()) }
     single { LocationCollector(androidContext(), get(), get()) }
     single { ActivityCollector(androidContext(), get(), get()) }
+    single { WifiCollector(androidContext(), get(), get()) }
     single {
         CollectorOrchestrator(get(), get(), get()).apply {
             register(get<LocationCollector>())
             register(get<ActivityCollector>())
+            register(get<WifiCollector>())
         }
     }
 }
