@@ -13,4 +13,22 @@
     <string name="retry">Retry</string>
     <string name="empty_title">No Data Yet</string>
     <string name="empty_message">Nothing to show here yet.</string>
+
+    <!-- Search Screen -->
+    <string name="search_hint">Ask BlackBox anything…</string>
+    <string name="search_recent">Recent Queries</string>
+    <string name="search_suggestions">Suggested Follow-ups</string>
+
+    <!-- Insights Screen -->
+    <string name="insights_period_7d">7 days</string>
+    <string name="insights_period_30d">30 days</string>
+    <string name="insights_period_90d">90 days</string>
+    <string name="insights_steps">Steps</string>
+    <string name="insights_screen_time">Screen Time</string>
+    <string name="insights_avg_steps">daily average</string>
+    <string name="insights_avg_screen">daily average</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_collectors_title">Data Collectors</string>
+    <string name="settings_interval">Every %1$d seconds</string>
 </resources>

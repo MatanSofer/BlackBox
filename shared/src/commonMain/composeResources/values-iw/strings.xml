@@ -2,15 +2,33 @@
     <string name="app_name">BlackBox</string>
 
     <!-- Bottom Navigation -->
-    <string name="tab_search">&#x05D7;&#x05D9;&#x05E4;&#x05D5;&#x05E9;</string>
-    <string name="tab_timeline">&#x05E6;&#x05D9;&#x05E8; &#x05D6;&#x05DE;&#x05DF;</string>
-    <string name="tab_map">&#x05DE;&#x05E4;&#x05D4;</string>
-    <string name="tab_insights">&#x05EA;&#x05D5;&#x05D1;&#x05E0;&#x05D5;&#x05EA;</string>
-    <string name="tab_settings">&#x05D4;&#x05D2;&#x05D3;&#x05E8;&#x05D5;&#x05EA;</string>
+    <string name="tab_search">חיפוש</string>
+    <string name="tab_timeline">ציר זמן</string>
+    <string name="tab_map">מפה</string>
+    <string name="tab_insights">תובנות</string>
+    <string name="tab_settings">הגדרות</string>
 
     <!-- Common -->
-    <string name="error_title">&#x05DE;&#x05E9;&#x05D4;&#x05D5; &#x05D4;&#x05E9;&#x05EA;&#x05D1;&#x05E9;</string>
-    <string name="retry">&#x05E0;&#x05E1;&#x05D4; &#x05E9;&#x05D5;&#x05D1;</string>
-    <string name="empty_title">&#x05D0;&#x05D9;&#x05DF; &#x05E0;&#x05EA;&#x05D5;&#x05E0;&#x05D9;&#x05DD; &#x05E2;&#x05D3;&#x05D9;&#x05D9;&#x05DF;</string>
-    <string name="empty_message">&#x05D0;&#x05D9;&#x05DF; &#x05DE;&#x05D4; &#x05DC;&#x05D4;&#x05E6;&#x05D9;&#x05D2; &#x05DB;&#x05E8;&#x05D2;&#x05E2;.</string>
+    <string name="error_title">משהו השתבש</string>
+    <string name="retry">נסה שוב</string>
+    <string name="empty_title">אין נתונים עדיין</string>
+    <string name="empty_message">אין מה להציג כרגע.</string>
+
+    <!-- Search Screen -->
+    <string name="search_hint">שאל את BlackBox…</string>
+    <string name="search_recent">שאילתות אחרונות</string>
+    <string name="search_suggestions">הצעות המשך</string>
+
+    <!-- Insights Screen -->
+    <string name="insights_period_7d">7 ימים</string>
+    <string name="insights_period_30d">30 ימים</string>
+    <string name="insights_period_90d">90 ימים</string>
+    <string name="insights_steps">צעדים</string>
+    <string name="insights_screen_time">זמן מסך</string>
+    <string name="insights_avg_steps">ממוצע יומי</string>
+    <string name="insights_avg_screen">ממוצע יומי</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_collectors_title">אספני נתונים</string>
+    <string name="settings_interval">כל %1$d שניות</string>
 </resources>
