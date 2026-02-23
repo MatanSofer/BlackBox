@@ -19,6 +19,10 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
 
+            // DI
+            implementation(libs.koin.android)
+            implementation(libs.koin.androidx.compose)
+
             // Shared module (exports Compose deps via api)
             implementation(project(":shared"))
         }
