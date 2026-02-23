@@ -26,7 +26,7 @@ kotlin {
             // AndroidX
             implementation(libs.androidx.core.ktx)
 
-            // Google Play Services
+            // Google Play Services (includes Activity Recognition API)
             implementation(libs.play.services.location)
 
             // Shared module (exports Compose deps via api)
