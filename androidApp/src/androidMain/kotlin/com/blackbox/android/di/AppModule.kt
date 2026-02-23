@@ -16,4 +16,4 @@ val appModule = module {
 /**
  * All Koin modules aggregated for application startup.
  */
-val appModules = listOf(appModule, databaseModule, repositoryModule)
+val appModules = listOf(appModule, databaseModule, repositoryModule, useCaseModule, collectorModule)

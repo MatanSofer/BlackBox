@@ -23,6 +23,9 @@ kotlin {
             implementation(libs.koin.android)
             implementation(libs.koin.androidx.compose)
 
+            // AndroidX
+            implementation(libs.androidx.core.ktx)
+
             // Shared module (exports Compose deps via api)
             implementation(project(":shared"))
         }

@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">BlackBox</string>
+    <string name="notification_channel_name">Data Collection</string>
+    <string name="notification_channel_description">Persistent notification for background data collection</string>
+    <string name="notification_title">BlackBox is recording</string>
+    <string name="notification_text">Passively capturing contextual data</string>
 </resources>
