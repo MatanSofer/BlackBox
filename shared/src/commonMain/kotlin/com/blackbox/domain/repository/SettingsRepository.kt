@@ -26,4 +26,10 @@ interface SettingsRepository {
 
     /** Observes all collector settings as a reactive flow. */
     fun observeSettings(): Flow<List<CollectorSetting>>
+
+    /** Returns whether onboarding has been completed. */
+    suspend fun isOnboardingComplete(): Boolean
+
+    /** Marks onboarding as completed. */
+    suspend fun setOnboardingComplete()
 }

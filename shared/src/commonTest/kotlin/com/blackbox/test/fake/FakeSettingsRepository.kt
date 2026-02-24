@@ -40,4 +40,12 @@ class FakeSettingsRepository : SettingsRepository {
     override fun observeSettings(): Flow<List<CollectorSetting>> {
         return flowOf(settings.values.toList())
     }
+
+    var onboardingComplete = false
+
+    override suspend fun isOnboardingComplete(): Boolean = onboardingComplete
+
+    override suspend fun setOnboardingComplete() {
+        onboardingComplete = true
+    }
 }

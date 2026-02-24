@@ -73,6 +73,7 @@ class OnboardingViewModel(
 
     private fun handleComplete() {
         viewModelScope.launch {
+            settingsRepository.setOnboardingComplete()
             _events.emit(OnboardingContract.Event.NavigateToMain)
         }
     }

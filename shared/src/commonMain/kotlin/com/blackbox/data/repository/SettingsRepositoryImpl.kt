@@ -87,7 +87,30 @@ class SettingsRepositoryImpl(
             .map { list -> list.map(SettingsMapper::toDomain) }
     }
 
+    override suspend fun isOnboardingComplete(): Boolean {
+        return withContext(Dispatchers.IO) {
+            database.blackBoxDatabaseQueries
+                .getSettingForCollector(ONBOARDING_KEY)
+                .executeAsOneOrNull()
+                ?.is_enabled == 1L
+        }
+    }
+
+    override suspend fun setOnboardingComplete() {
+        withContext(Dispatchers.IO) {
+            logger.i(TAG, "Marking onboarding as complete")
+            database.blackBoxDatabaseQueries.insertSetting(
+                collector_type = ONBOARDING_KEY,
+                is_enabled = 1L,
+                collection_interval_ms = 0L,
+                custom_config_json = null,
+                updated_at = kotlinx.datetime.Clock.System.now().toEpochMilliseconds(),
+            )
+        }
+    }
+
     companion object {
         private const val TAG = "SettingsRepository"
+        private const val ONBOARDING_KEY = "_ONBOARDING_COMPLETE"
     }
 }

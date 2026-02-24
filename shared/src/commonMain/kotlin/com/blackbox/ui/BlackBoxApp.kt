@@ -28,9 +28,11 @@ import org.jetbrains.compose.resources.stringResource
  * bottom navigation state, and wires the [BlackBoxNavHost] with
  * the [BlackBoxBottomBar]. Lives in the shared module so it can
  * be reused across platforms (Android, iOS).
+ *
+ * @param isOnboardingComplete Whether the user has completed onboarding.
  */
 @Composable
-fun BlackBoxApp() {
+fun BlackBoxApp(isOnboardingComplete: Boolean = true) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -73,8 +75,10 @@ fun BlackBoxApp() {
             }
         },
     ) { innerPadding ->
+        val startDest = if (isOnboardingComplete) Screen.Search.route else Screen.Onboarding.route
         BlackBoxNavHost(
             navController = navController,
+            startDestination = startDest,
             modifier = Modifier.padding(innerPadding),
         )
     }
