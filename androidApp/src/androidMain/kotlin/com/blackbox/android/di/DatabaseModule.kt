@@ -17,7 +17,7 @@ import org.koin.dsl.module
 val databaseModule = module {
     single {
         val keyManager: KeyManager = get()
-        val passphrase = keyManager.getOrCreateDatabaseKey().encoded
+        val passphrase = keyManager.getOrCreateDatabasePassphrase()
         DatabaseDriverFactory(androidContext(), passphrase)
     }
     single {

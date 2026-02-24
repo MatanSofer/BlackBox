@@ -4,6 +4,7 @@ import com.blackbox.android.security.BiometricManager
 import com.blackbox.android.security.KeyManager
 import com.blackbox.android.util.AndroidLogger
 import com.blackbox.domain.util.BlackBoxLogger
+import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 /**
@@ -13,7 +14,7 @@ import org.koin.dsl.module
  */
 val appModule = module {
     single<BlackBoxLogger> { AndroidLogger() }
-    single { KeyManager(get()) }
+    single { KeyManager(androidContext(), get()) }
     single { BiometricManager(get()) }
 }
 

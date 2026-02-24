@@ -1,9 +1,12 @@
 package com.blackbox.android.security
 
+import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.util.Base64
 import com.blackbox.domain.util.BlackBoxLogger
 import java.security.KeyStore
+import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -16,14 +19,59 @@ import javax.crypto.spec.GCMParameterSpec
  * which provides hardware-backed key storage on supported devices.
  * Used primarily for encrypting the SQLCipher database passphrase.
  *
+ * The database passphrase is a random byte array that is encrypted
+ * with the Keystore key and stored in SharedPreferences. Android
+ * Keystore keys do not expose raw bytes (getEncoded() returns null),
+ * so the Keystore is used only for encrypt/decrypt operations.
+ *
+ * @property context Application context for SharedPreferences access.
  * @property logger Logger for operation tracking.
  */
 class KeyManager(
+    private val context: Context,
     private val logger: BlackBoxLogger,
 ) {
 
     private val keyStore: KeyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply {
         load(null)
+    }
+
+    /**
+     * Retrieves the database encryption passphrase, generating one on first use.
+     *
+     * Android Keystore keys do not expose raw bytes (`getEncoded()` returns null),
+     * so this method generates a random passphrase, encrypts it with the Keystore
+     * key, and stores the encrypted form in SharedPreferences. On subsequent calls
+     * the encrypted passphrase is loaded and decrypted.
+     *
+     * @return Raw passphrase bytes suitable for SQLCipher.
+     */
+    fun getOrCreateDatabasePassphrase(): ByteArray {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val storedCiphertext = prefs.getString(PREF_KEY_CIPHERTEXT, null)
+        val storedIv = prefs.getString(PREF_KEY_IV, null)
+
+        if (storedCiphertext != null && storedIv != null) {
+            logger.d(TAG, "Loading existing database passphrase")
+            val encrypted = EncryptedData(
+                ciphertext = Base64.decode(storedCiphertext, Base64.NO_WRAP),
+                iv = Base64.decode(storedIv, Base64.NO_WRAP),
+            )
+            return decrypt(encrypted)
+        }
+
+        logger.d(TAG, "Generating new database passphrase")
+        val passphrase = ByteArray(PASSPHRASE_LENGTH_BYTES).also {
+            SecureRandom().nextBytes(it)
+        }
+
+        val encrypted = encrypt(passphrase)
+        prefs.edit()
+            .putString(PREF_KEY_CIPHERTEXT, Base64.encodeToString(encrypted.ciphertext, Base64.NO_WRAP))
+            .putString(PREF_KEY_IV, Base64.encodeToString(encrypted.iv, Base64.NO_WRAP))
+            .apply()
+
+        return passphrase
     }
 
     /**
@@ -129,6 +177,10 @@ class KeyManager(
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val KEY_SIZE_BITS = 256
         private const val GCM_TAG_LENGTH_BITS = 128
+        private const val PASSPHRASE_LENGTH_BYTES = 32
+        private const val PREFS_NAME = "blackbox_key_prefs"
+        private const val PREF_KEY_CIPHERTEXT = "db_passphrase_enc"
+        private const val PREF_KEY_IV = "db_passphrase_iv"
     }
 }
 
