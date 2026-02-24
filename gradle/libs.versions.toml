@@ -31,7 +31,7 @@ koin = "4.0.0"
 
 # Database
 sqldelight = "2.0.2"
-sqlcipher = "4.5.6"
+sqlcipher = "4.6.1"
 
 # Google Play Services
 play-services-location = "21.3.0"
@@ -105,7 +105,7 @@ sqldelight-native-driver = { module = "app.cash.sqldelight:native-driver", versi
 sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
 
 # SQLCipher
-sqlcipher = { module = "net.zetetic:android-database-sqlcipher", version.ref = "sqlcipher" }
+sqlcipher = { module = "net.zetetic:sqlcipher-android", version.ref = "sqlcipher" }
 
 # Google Play Services
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "play-services-location" }

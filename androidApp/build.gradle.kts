@@ -31,6 +31,12 @@ kotlin {
             // Google Play Services (includes Activity Recognition API)
             implementation(libs.play.services.location)
 
+            // SQLCipher (encrypted database)
+            implementation(libs.sqlcipher)
+
+            // OSMDroid (offline maps)
+            implementation(libs.osmdroid)
+
             // Shared module (exports Compose deps via api)
             implementation(project(":shared"))
         }

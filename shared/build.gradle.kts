@@ -61,6 +61,7 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.sqldelight.android.driver)
+            implementation(libs.sqlcipher)
         }
         iosMain.dependencies {
             implementation(libs.sqldelight.native.driver)
