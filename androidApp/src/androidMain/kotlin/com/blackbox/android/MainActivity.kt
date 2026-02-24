@@ -11,7 +11,9 @@ import androidx.lifecycle.lifecycleScope
 import com.blackbox.domain.repository.SettingsRepository
 import com.blackbox.ui.BlackBoxApp
 import com.blackbox.ui.theme.BlackBoxTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
 
 /**
@@ -20,6 +22,9 @@ import org.koin.android.ext.android.inject
  * Sets up edge-to-edge display, applies [BlackBoxTheme], and delegates
  * to the shared [BlackBoxApp] composable for all UI. Checks onboarding
  * completion state to determine the start destination.
+ *
+ * Uses a nullable loading state to avoid flashing the main screen
+ * before the onboarding check completes.
  */
 class MainActivity : ComponentActivity() {
 
@@ -29,10 +34,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        var isOnboardingComplete by mutableStateOf(true)
+        var isOnboardingComplete: Boolean? by mutableStateOf(null)
 
         lifecycleScope.launch {
-            isOnboardingComplete = settingsRepository.isOnboardingComplete()
+            isOnboardingComplete = withContext(Dispatchers.IO) {
+                settingsRepository.isOnboardingComplete()
+            }
         }
 
         setContent {

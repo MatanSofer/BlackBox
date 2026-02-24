@@ -1,10 +1,14 @@
 package com.blackbox.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -29,10 +33,26 @@ import org.jetbrains.compose.resources.stringResource
  * the [BlackBoxBottomBar]. Lives in the shared module so it can
  * be reused across platforms (Android, iOS).
  *
- * @param isOnboardingComplete Whether the user has completed onboarding.
+ * Shows a themed splash background while the onboarding state
+ * is being loaded (null), preventing a flash of the wrong screen.
+ *
+ * @param isOnboardingComplete Whether the user has completed onboarding,
+ *   or null if still loading.
  */
 @Composable
-fun BlackBoxApp(isOnboardingComplete: Boolean = true) {
+fun BlackBoxApp(isOnboardingComplete: Boolean? = true) {
+    if (isOnboardingComplete == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.Center,
+        ) {
+            // Empty themed background while loading — avoids white flash
+        }
+        return
+    }
+
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
