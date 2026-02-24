@@ -31,6 +31,7 @@ class SettingsRepositoryImpl(
             database.blackBoxDatabaseQueries
                 .getAllSettings()
                 .executeAsList()
+                .filter { !it.collector_type.startsWith("_") }
                 .map(SettingsMapper::toDomain)
         }
     }
@@ -84,7 +85,10 @@ class SettingsRepositoryImpl(
             .getAllSettings()
             .asFlow()
             .mapToList(Dispatchers.IO)
-            .map { list -> list.map(SettingsMapper::toDomain) }
+            .map { list ->
+                list.filter { !it.collector_type.startsWith("_") }
+                    .map(SettingsMapper::toDomain)
+            }
     }
 
     override suspend fun isOnboardingComplete(): Boolean {
