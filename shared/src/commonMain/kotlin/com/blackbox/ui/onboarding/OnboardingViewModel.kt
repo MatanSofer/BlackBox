@@ -19,9 +19,24 @@ import kotlinx.coroutines.launch
  * requests and onboarding completion persistence.
  *
  * @property settingsRepository Repository for persisting onboarding state.
+ * @property checkUsageAccess Platform function that returns true when the
+ *   [AppOpsManager.OPSTR_GET_USAGE_STATS] special permission is granted.
+ * @property checkLocationPermission Platform function that returns true when
+ *   ACCESS_FINE_LOCATION or ACCESS_COARSE_LOCATION is granted.
+ * @property checkActivityPermission Platform function that returns true when
+ *   ACTIVITY_RECOGNITION is granted (or OS < API 29 where it is implicit).
+ * @property checkNotificationPermission Platform function that returns true when
+ *   POST_NOTIFICATIONS is granted (or OS < API 33 where it is implicit).
+ *
+ * All check functions are injected so the shared-module ViewModel can query
+ * Android-only APIs without importing Android classes directly.
  */
 class OnboardingViewModel(
     private val settingsRepository: SettingsRepository,
+    private val checkUsageAccess: () -> Boolean = { false },
+    private val checkLocationPermission: () -> Boolean = { false },
+    private val checkActivityPermission: () -> Boolean = { true },
+    private val checkNotificationPermission: () -> Boolean = { true },
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(OnboardingContract.State())
@@ -49,6 +64,9 @@ class OnboardingViewModel(
             is OnboardingContract.Action.NotificationPermissionResult ->
                 _state.update { it.copy(notificationGranted = action.granted) }
             is OnboardingContract.Action.SkipPermissions -> handleComplete()
+            is OnboardingContract.Action.OpenUsageAccessSettings -> handleOpenUsageAccessSettings()
+            is OnboardingContract.Action.CheckUsageAccess -> handleCheckUsageAccess()
+            is OnboardingContract.Action.CheckPermissions -> handleCheckPermissions()
         }
     }
 
@@ -78,17 +96,74 @@ class OnboardingViewModel(
         }
     }
 
+    private fun handleOpenUsageAccessSettings() {
+        _state.update { it.copy(usageAccessRequested = true) }
+        viewModelScope.launch {
+            _events.emit(OnboardingContract.Event.OpenUsageAccessSettings)
+        }
+    }
+
+    private fun handleCheckUsageAccess() {
+        _state.update { it.copy(usageAccessGranted = checkUsageAccess()) }
+    }
+
+    /**
+     * Re-queries all runtime permission states and then requests the next
+     * pending permission if the sequence is still in progress.
+     *
+     * Called on every ON_RESUME of the onboarding screen, which fires each
+     * time the user dismisses a system permission dialog and the app returns
+     * to the foreground. By requesting one permission at a time this way,
+     * we avoid calling [ActivityResultLauncher.launch] while the activity is
+     * already paused (which silently drops the request on Android 10+).
+     */
+    private fun handleCheckPermissions() {
+        _state.update {
+            it.copy(
+                locationGranted = checkLocationPermission(),
+                activityGranted = checkActivityPermission(),
+                notificationGranted = checkNotificationPermission(),
+            )
+        }
+        // If we're on the permissions page and the sequence has started,
+        // request the next permission that hasn't been shown yet.
+        if (_state.value.currentPage == PERMISSIONS_PAGE && _state.value.locationRequested) {
+            viewModelScope.launch { requestNextPermission() }
+        }
+    }
+
     private fun requestPermissions() {
         viewModelScope.launch {
-            if (!_state.value.locationGranted) {
+            requestNextPermission()
+        }
+    }
+
+    /**
+     * Emits a request for the next permission that hasn't been requested yet this session.
+     *
+     * Permissions are requested one at a time. Each call requests exactly one permission
+     * and returns. The next permission is requested after the current dialog is dismissed
+     * (detected via ON_RESUME → [handleCheckPermissions]).
+     *
+     * Permissions that have already been requested are skipped to avoid
+     * showing the dialog again after a deny.
+     */
+    private suspend fun requestNextPermission() {
+        val state = _state.value
+        when {
+            !state.locationRequested -> {
+                _state.update { it.copy(locationRequested = true) }
                 _events.emit(OnboardingContract.Event.RequestLocationPermission)
             }
-            if (!_state.value.activityGranted) {
+            !state.activityRequested -> {
+                _state.update { it.copy(activityRequested = true) }
                 _events.emit(OnboardingContract.Event.RequestActivityPermission)
             }
-            if (!_state.value.notificationGranted) {
+            !state.notificationRequested -> {
+                _state.update { it.copy(notificationRequested = true) }
                 _events.emit(OnboardingContract.Event.RequestNotificationPermission)
             }
+            // All permissions have been requested — nothing more to do.
         }
     }
 

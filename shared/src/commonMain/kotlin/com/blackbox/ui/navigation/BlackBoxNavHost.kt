@@ -20,12 +20,24 @@ import com.blackbox.ui.timeline.TimelineScreen
  *
  * @param navController The [NavHostController] managing navigation state.
  * @param startDestination The initial screen route (onboarding or search).
+ * @param onStartService Callback invoked when the background collection
+ *   service should be started (triggered on onboarding completion).
+ * @param onOpenUsageAccessSettings Callback to open the system Usage Access
+ *   settings screen so the user can grant the special permission.
+ * @param onRequestLocationPermission Callback to trigger the system location permission dialog.
+ * @param onRequestActivityPermission Callback to trigger the activity recognition permission dialog.
+ * @param onRequestNotificationPermission Callback to trigger the notification permission dialog.
  * @param modifier Optional [Modifier] for the NavHost container.
  */
 @Composable
 fun BlackBoxNavHost(
     navController: NavHostController,
     startDestination: String = Screen.Search.route,
+    onStartService: () -> Unit = {},
+    onOpenUsageAccessSettings: () -> Unit = {},
+    onRequestLocationPermission: () -> Unit = {},
+    onRequestActivityPermission: () -> Unit = {},
+    onRequestNotificationPermission: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     NavHost(
@@ -35,7 +47,12 @@ fun BlackBoxNavHost(
     ) {
         composable(Screen.Onboarding.route) {
             OnboardingScreen(
+                onRequestLocationPermission = onRequestLocationPermission,
+                onRequestActivityPermission = onRequestActivityPermission,
+                onRequestNotificationPermission = onRequestNotificationPermission,
+                onOpenUsageAccessSettings = onOpenUsageAccessSettings,
                 onOnboardingComplete = {
+                    onStartService()
                     navController.navigate(Screen.Search.route) {
                         popUpTo(Screen.Onboarding.route) { inclusive = true }
                     }

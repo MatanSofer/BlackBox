@@ -38,9 +38,23 @@ import org.jetbrains.compose.resources.stringResource
  *
  * @param isOnboardingComplete Whether the user has completed onboarding,
  *   or null if still loading.
+ * @param onStartService Platform callback invoked when the background
+ *   collection service should be started (after onboarding completes).
+ * @param onOpenUsageAccessSettings Platform callback to open the system
+ *   Usage Access settings screen during onboarding.
+ * @param onRequestLocationPermission Platform callback to show the location permission dialog.
+ * @param onRequestActivityPermission Platform callback to show the activity recognition dialog.
+ * @param onRequestNotificationPermission Platform callback to show the notification permission dialog.
  */
 @Composable
-fun BlackBoxApp(isOnboardingComplete: Boolean? = true) {
+fun BlackBoxApp(
+    isOnboardingComplete: Boolean? = true,
+    onStartService: () -> Unit = {},
+    onOpenUsageAccessSettings: () -> Unit = {},
+    onRequestLocationPermission: () -> Unit = {},
+    onRequestActivityPermission: () -> Unit = {},
+    onRequestNotificationPermission: () -> Unit = {},
+) {
     if (isOnboardingComplete == null) {
         Box(
             modifier = Modifier
@@ -99,6 +113,11 @@ fun BlackBoxApp(isOnboardingComplete: Boolean? = true) {
         BlackBoxNavHost(
             navController = navController,
             startDestination = startDest,
+            onStartService = onStartService,
+            onOpenUsageAccessSettings = onOpenUsageAccessSettings,
+            onRequestLocationPermission = onRequestLocationPermission,
+            onRequestActivityPermission = onRequestActivityPermission,
+            onRequestNotificationPermission = onRequestNotificationPermission,
             modifier = Modifier.padding(innerPadding),
         )
     }

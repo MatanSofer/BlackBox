@@ -1,5 +1,6 @@
 package com.blackbox.android.service
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,8 +8,12 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.blackbox.android.MainActivity
 import com.blackbox.android.R
 import com.blackbox.android.collector.base.CollectorOrchestrator
@@ -46,7 +51,7 @@ class BlackBoxService : Service() {
         logger.i(TAG, "Service started (startId=$startId)")
 
         val notification = buildNotification()
-        startForeground(NOTIFICATION_ID, notification)
+        startForegroundCompat(notification)
 
         serviceScope.launch {
             try {
@@ -69,6 +74,55 @@ class BlackBoxService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    /**
+     * Calls [startForeground] with only the service types whose required
+     * runtime permissions are currently granted.
+     *
+     * On Android 10+ (API 29), the 2-argument [startForeground] defaults to
+     * ALL types declared in the manifest (including `location`). To avoid a
+     * [SecurityException] before location permission is granted, we
+     * explicitly pass only the types that are currently permitted.
+     *
+     * If the location type is granted but the app is not yet in the eligible
+     * foreground state (e.g., START_STICKY restart with no visible activity),
+     * we fall back gracefully to [ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC].
+     */
+    private fun startForegroundCompat(notification: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val locationGranted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
+
+            val serviceType = if (locationGranted) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            } else {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            }
+
+            logger.d(TAG, "startForeground type=0x${serviceType.toString(16)} locationGranted=$locationGranted")
+
+            try {
+                startForeground(NOTIFICATION_ID, notification, serviceType)
+            } catch (e: SecurityException) {
+                // Location type requires eligible foreground state (visible activity or system exemption).
+                // Fall back to DATA_SYNC only so the service keeps running; the location collector
+                // will be inactive until the service is restarted from a foreground context.
+                logger.w(TAG, "startForeground with location type failed, retrying as dataSync only", e)
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+                )
+            }
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
 
     /**
      * Creates the notification channel for Android O+.

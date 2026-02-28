@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -72,7 +73,7 @@ fun OnboardingContent(
         // Page content
         when (state.currentPage) {
             0 -> WelcomePage()
-            1 -> PermissionsPage(state)
+            1 -> PermissionsPage(state, onAction)
             2 -> ReadyPage()
         }
 
@@ -179,7 +180,10 @@ private fun WelcomePage() {
  * Permissions page showing required permissions and their status.
  */
 @Composable
-private fun PermissionsPage(state: OnboardingContract.State) {
+private fun PermissionsPage(
+    state: OnboardingContract.State,
+    onAction: (OnboardingContract.Action) -> Unit,
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(
             imageVector = Icons.Default.Settings,
@@ -211,6 +215,12 @@ private fun PermissionsPage(state: OnboardingContract.State) {
         PermissionRow(label = "Location", granted = state.locationGranted)
         PermissionRow(label = "Activity Recognition", granted = state.activityGranted)
         PermissionRow(label = "Notifications", granted = state.notificationGranted)
+        UsageAccessRow(
+            granted = state.usageAccessGranted,
+            requested = state.usageAccessRequested,
+            onOpen = { onAction(OnboardingContract.Action.OpenUsageAccessSettings) },
+            onCheck = { onAction(OnboardingContract.Action.CheckUsageAccess) },
+        )
     }
 }
 
@@ -255,6 +265,84 @@ private fun PermissionRow(label: String, granted: Boolean) {
                 MaterialTheme.colorScheme.onSurfaceVariant
             },
         )
+    }
+}
+
+/**
+ * Row for the Usage Access special permission.
+ *
+ * Unlike normal runtime permissions, Usage Access must be granted manually
+ * via a system Settings screen. Shows an "Open Settings" button before the
+ * user has attempted it, and a "I've enabled it" check button after they
+ * return from Settings.
+ *
+ * @param granted Whether the permission is currently granted.
+ * @param requested Whether the user has already opened the Settings screen.
+ * @param onOpen Called when the user taps "Open Settings".
+ * @param onCheck Called when the user taps "I've enabled it" to re-verify.
+ */
+@Composable
+private fun UsageAccessRow(
+    granted: Boolean,
+    requested: Boolean,
+    onOpen: () -> Unit,
+    onCheck: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = Dimens.SpacingSm),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = if (granted) Icons.Default.Check else Icons.Default.Settings,
+                contentDescription = null,
+                modifier = Modifier.size(Dimens.IconMd),
+                tint = if (granted) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+
+            Spacer(modifier = Modifier.width(Dimens.SpacingMd))
+
+            Text(
+                text = "App Usage Tracking",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+
+            if (granted) {
+                Text(
+                    text = "Granted",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            } else if (!requested) {
+                FilledTonalButton(onClick = onOpen) {
+                    Text("Open Settings", style = MaterialTheme.typography.labelSmall)
+                }
+            } else {
+                FilledTonalButton(onClick = onCheck) {
+                    Text("I've enabled it", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+
+        if (!granted) {
+            Spacer(modifier = Modifier.height(Dimens.SpacingXs))
+            Text(
+                text = "Required to track which apps you use. Not enabled by default.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = Dimens.IconMd + Dimens.SpacingMd),
+            )
+        }
     }
 }
 
