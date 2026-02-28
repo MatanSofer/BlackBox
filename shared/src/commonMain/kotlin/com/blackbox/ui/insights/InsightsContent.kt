@@ -1,5 +1,8 @@
 package com.blackbox.ui.insights
 
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,14 +13,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import blackbox.shared.generated.resources.Res
 import blackbox.shared.generated.resources.insights_avg_screen
 import blackbox.shared.generated.resources.insights_avg_steps
@@ -31,15 +43,18 @@ import com.blackbox.domain.repository.DailyStepCount
 import com.blackbox.ui.common.EmptyStateView
 import com.blackbox.ui.common.ErrorView
 import com.blackbox.ui.common.LoadingIndicator
+import com.blackbox.ui.theme.BlackBoxColors
 import com.blackbox.ui.theme.BlackBoxTheme
 import com.blackbox.ui.theme.Dimens
+import com.blackbox.ui.theme.neonBorder
+import com.blackbox.ui.theme.neonGlowBackground
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Pure UI content for the Insights screen.
+ * Pure UI content for the Insights screen — cyberpunk metrics terminal.
  *
- * Renders period selector chips, summary cards with averages,
- * and trend data for steps and screen time.
+ * Renders period selector chips with neon borders, metric cards with
+ * animated count-up numbers, and canvas-drawn neon bar charts.
  *
  * @param state Current UI state from the ViewModel.
  * @param onAction Callback to dispatch user actions.
@@ -60,21 +75,27 @@ fun InsightsContent(
         Row(
             horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingSm),
         ) {
-            FilterChip(
-                selected = state.selectedPeriodDays == 7,
-                onClick = { onAction(InsightsContract.Action.PeriodSelected(7)) },
-                label = { Text(stringResource(Res.string.insights_period_7d)) },
-            )
-            FilterChip(
-                selected = state.selectedPeriodDays == 30,
-                onClick = { onAction(InsightsContract.Action.PeriodSelected(30)) },
-                label = { Text(stringResource(Res.string.insights_period_30d)) },
-            )
-            FilterChip(
-                selected = state.selectedPeriodDays == 90,
-                onClick = { onAction(InsightsContract.Action.PeriodSelected(90)) },
-                label = { Text(stringResource(Res.string.insights_period_90d)) },
-            )
+            listOf(7 to Res.string.insights_period_7d, 30 to Res.string.insights_period_30d, 90 to Res.string.insights_period_90d).forEach { (days, res) ->
+                FilterChip(
+                    selected = state.selectedPeriodDays == days,
+                    onClick = { onAction(InsightsContract.Action.PeriodSelected(days)) },
+                    label = { Text(stringResource(res)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = BlackBoxColors.NeonGreenFaint,
+                        selectedLabelColor = BlackBoxColors.NeonGreen,
+                        labelColor = BlackBoxColors.TextMuted,
+                        containerColor = BlackBoxColors.SurfaceVariant,
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = state.selectedPeriodDays == days,
+                        selectedBorderColor = BlackBoxColors.NeonGreen,
+                        borderColor = BlackBoxColors.OutlineNeon,
+                        selectedBorderWidth = 1.dp,
+                        borderWidth = 1.dp,
+                    ),
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(Dimens.SpacingLg))
@@ -93,7 +114,7 @@ fun InsightsContent(
 
             state.stepTrend.isEmpty() && state.screenTimeTrend.isEmpty() -> {
                 EmptyStateView(
-                    title = "No Insights Yet",
+                    title = "NO INSIGHTS YET",
                     message = "Insights will appear after a few days of data collection.",
                 )
             }
@@ -105,20 +126,21 @@ fun InsightsContent(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(Dimens.SpacingLg),
                 ) {
-                    // Steps summary card
                     InsightSummaryCard(
                         title = stringResource(Res.string.insights_steps),
-                        value = "${state.averageSteps}",
+                        value = state.averageSteps,
                         subtitle = stringResource(Res.string.insights_avg_steps),
                         dataPoints = state.stepTrend.map { it.steps },
+                        accentColor = BlackBoxColors.NeonGreen,
                     )
 
-                    // Screen time summary card
                     InsightSummaryCard(
                         title = stringResource(Res.string.insights_screen_time),
-                        value = formatMinutes(state.averageScreenMinutes),
+                        value = state.averageScreenMinutes,
                         subtitle = stringResource(Res.string.insights_avg_screen),
                         dataPoints = state.screenTimeTrend.map { it.totalMinutes },
+                        accentColor = BlackBoxColors.ElectricCyan,
+                        formatValue = { formatMinutes(it) },
                     )
                 }
             }
@@ -127,57 +149,111 @@ fun InsightsContent(
 }
 
 /**
- * Summary card displaying a metric with a simple bar trend.
+ * Cyberpunk metric card with animated count-up value and canvas bar chart.
  *
- * @param title The metric name.
- * @param value The primary display value.
- * @param subtitle Description below the value.
- * @param dataPoints Numeric data for the mini trend visualization.
+ * @param title The metric name label.
+ * @param value The numeric value to animate towards.
+ * @param subtitle Description below the big number.
+ * @param dataPoints Raw numbers for the mini bar chart.
+ * @param accentColor Neon color for borders, bars, and accents.
+ * @param formatValue Optional function to format the animated value into a string.
  * @param modifier Optional [Modifier].
  */
 @Composable
 private fun InsightSummaryCard(
     title: String,
-    value: String,
+    value: Int,
     subtitle: String,
     dataPoints: List<Int>,
+    accentColor: androidx.compose.ui.graphics.Color,
+    formatValue: (Int) -> String = { it.toString() },
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
+    var animTarget by remember { mutableIntStateOf(0) }
+    LaunchedEffect(value) { animTarget = value }
+    val animatedValue by animateIntAsState(
+        targetValue = animTarget,
+        animationSpec = tween(durationMillis = 1000),
+        label = "metric_count_up",
+    )
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .neonGlowBackground(accentColor.copy(alpha = 0.05f))
+            .neonBorder(color = accentColor, cornerRadius = 4.dp)
+            .padding(Dimens.PaddingCard),
     ) {
-        Column(modifier = Modifier.padding(Dimens.PaddingCard)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Text(
+            text = title.uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            color = accentColor,
+        )
+
+        Spacer(modifier = Modifier.height(Dimens.SpacingSm))
+
+        Text(
+            text = formatValue(animatedValue),
+            style = MaterialTheme.typography.displaySmall,
+            color = accentColor,
+        )
+
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = BlackBoxColors.TextMuted,
+        )
+
+        if (dataPoints.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(Dimens.SpacingMd))
+            NeonBarChart(
+                dataPoints = dataPoints,
+                accentColor = accentColor,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(Dimens.InsightBarMaxHeight),
             )
-
-            Spacer(modifier = Modifier.height(Dimens.SpacingSm))
-
+            Spacer(modifier = Modifier.height(Dimens.SpacingXs))
             Text(
-                text = value,
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                text = "${dataPoints.size} DAYS",
+                style = MaterialTheme.typography.labelSmall,
+                color = BlackBoxColors.TextMuted,
             )
+        }
+    }
+}
 
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+/**
+ * Canvas-drawn neon bar chart.
+ *
+ * @param dataPoints The values to visualize as bars.
+ * @param accentColor The neon color for the bars.
+ * @param modifier Optional [Modifier].
+ */
+@Composable
+private fun NeonBarChart(
+    dataPoints: List<Int>,
+    accentColor: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+) {
+    if (dataPoints.isEmpty()) return
+    val maxVal = dataPoints.max().toFloat().coerceAtLeast(1f)
+
+    Canvas(modifier = modifier) {
+        val barCount = dataPoints.size
+        val gap = 4.dp.toPx()
+        val barWidth = (size.width - gap * (barCount - 1)) / barCount
+
+        dataPoints.forEachIndexed { i, v ->
+            val barHeight = (v / maxVal) * size.height
+            val x = i * (barWidth + gap)
+            val y = size.height - barHeight
+            drawRoundRect(
+                color = accentColor.copy(alpha = 0.7f),
+                topLeft = Offset(x, y),
+                size = Size(barWidth, barHeight),
+                cornerRadius = CornerRadius(2.dp.toPx()),
             )
-
-            if (dataPoints.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(Dimens.SpacingMd))
-                Text(
-                    text = "${dataPoints.size} days of data",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }

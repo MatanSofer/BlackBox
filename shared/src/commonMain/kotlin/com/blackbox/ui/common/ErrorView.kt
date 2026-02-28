@@ -4,11 +4,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -17,18 +20,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import blackbox.shared.generated.resources.Res
 import blackbox.shared.generated.resources.error_title
 import blackbox.shared.generated.resources.retry
+import com.blackbox.ui.theme.BlackBoxColors
 import com.blackbox.ui.theme.BlackBoxTheme
 import com.blackbox.ui.theme.Dimens
+import com.blackbox.ui.theme.neonBorder
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Full-screen error view with icon, message, and optional retry button.
+ * Terminal-style full-screen error view with neon magenta border.
  *
- * Displays a warning icon, error title, descriptive message,
- * and a retry button when [onRetry] is provided.
+ * Displays a [ERROR] prefix, warning icon, error title, descriptive
+ * message, and an optional retry button inside a neon-bordered card.
  *
  * @param message The human-readable error message to display.
  * @param modifier Optional [Modifier] for the container.
@@ -43,37 +49,61 @@ fun ErrorView(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .padding(Dimens.PaddingScreen),
     ) {
-        Icon(
-            imageVector = Icons.Default.Warning,
-            contentDescription = null,
-            modifier = Modifier.size(Dimens.IconXl),
-            tint = MaterialTheme.colorScheme.error,
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .neonBorder(color = BlackBoxColors.NeonMagenta, cornerRadius = 4.dp)
+                .padding(Dimens.PaddingCard),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                modifier = Modifier.size(Dimens.IconXl),
+                tint = BlackBoxColors.NeonMagenta,
+            )
 
-        Spacer(modifier = Modifier.height(Dimens.SpacingLg))
+            Spacer(modifier = Modifier.height(Dimens.SpacingLg))
 
-        Text(
-            text = stringResource(Res.string.error_title),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
+            Text(
+                text = "[ERROR]",
+                style = MaterialTheme.typography.labelLarge,
+                color = BlackBoxColors.NeonMagenta,
+            )
 
-        Spacer(modifier = Modifier.height(Dimens.SpacingSm))
+            Spacer(modifier = Modifier.height(Dimens.SpacingXs))
 
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
+            Text(
+                text = stringResource(Res.string.error_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = BlackBoxColors.TextPrimary,
+            )
 
-        if (onRetry != null) {
-            Spacer(modifier = Modifier.height(Dimens.SpacingXl))
+            Spacer(modifier = Modifier.height(Dimens.SpacingSm))
 
-            Button(onClick = onRetry) {
-                Text(text = stringResource(Res.string.retry))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = BlackBoxColors.TextMuted,
+                textAlign = TextAlign.Center,
+            )
+
+            if (onRetry != null) {
+                Spacer(modifier = Modifier.height(Dimens.SpacingXl))
+
+                Button(
+                    onClick = onRetry,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BlackBoxColors.NeonMagenta,
+                        contentColor = BlackBoxColors.TextOnNeon,
+                    ),
+                ) {
+                    Text(text = stringResource(Res.string.retry))
+                }
             }
         }
     }

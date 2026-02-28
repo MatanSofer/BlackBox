@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import blackbox.shared.generated.resources.Res
 import blackbox.shared.generated.resources.onboarding_back
 import blackbox.shared.generated.resources.onboarding_get_started
@@ -42,15 +44,18 @@ import blackbox.shared.generated.resources.onboarding_p2_title
 import blackbox.shared.generated.resources.onboarding_p3_desc
 import blackbox.shared.generated.resources.onboarding_p3_title
 import blackbox.shared.generated.resources.onboarding_skip
+import com.blackbox.ui.theme.BlackBoxColors
 import com.blackbox.ui.theme.BlackBoxTheme
 import com.blackbox.ui.theme.Dimens
+import com.blackbox.ui.theme.NeonPulseIndicator
+import com.blackbox.ui.theme.neonBorder
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Pure UI content for the Onboarding screen.
+ * Pure UI content for the Onboarding screen — cyberpunk initialization sequence.
  *
- * Renders a multi-page onboarding flow with page indicators,
- * permission status, and navigation buttons.
+ * Renders a multi-page onboarding flow with neon-styled page indicators,
+ * permission status rows, and terminal-aesthetic navigation buttons.
  *
  * @param state Current UI state from the ViewModel.
  * @param onAction Callback to dispatch user actions.
@@ -65,6 +70,7 @@ fun OnboardingContent(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(BlackBoxColors.Background)
             .padding(Dimens.PaddingScreen),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -79,23 +85,20 @@ fun OnboardingContent(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Page indicator dots
+        // Page indicator dots — neon green active, faint inactive
         Row(
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth(),
         ) {
             repeat(state.totalPages) { index ->
+                val isActive = index == state.currentPage
                 Box(
                     modifier = Modifier
                         .padding(horizontal = Dimens.SpacingXs)
-                        .size(if (index == state.currentPage) Dimens.SpacingSm else Dimens.SpacingXs)
+                        .size(if (isActive) Dimens.SpacingSm else Dimens.SpacingXs)
                         .clip(CircleShape)
                         .background(
-                            if (index == state.currentPage) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                            },
+                            if (isActive) BlackBoxColors.NeonGreen else BlackBoxColors.OutlineFaint,
                         ),
                 )
             }
@@ -110,7 +113,16 @@ fun OnboardingContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (state.currentPage > 0) {
-                OutlinedButton(onClick = { onAction(OnboardingContract.Action.PreviousPage) }) {
+                OutlinedButton(
+                    onClick = { onAction(OnboardingContract.Action.PreviousPage) },
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = Dimens.NeonBorderWidth,
+                        color = BlackBoxColors.OutlineNeon,
+                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = BlackBoxColors.TextMuted,
+                    ),
+                ) {
                     Text(stringResource(Res.string.onboarding_back))
                 }
             } else {
@@ -118,22 +130,44 @@ fun OnboardingContent(
             }
 
             if (state.currentPage == state.totalPages - 1) {
-                Button(onClick = { onAction(OnboardingContract.Action.Complete) }) {
+                Button(
+                    onClick = { onAction(OnboardingContract.Action.Complete) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BlackBoxColors.NeonGreen,
+                        contentColor = BlackBoxColors.TextOnNeon,
+                    ),
+                ) {
                     Text(stringResource(Res.string.onboarding_get_started))
                 }
             } else if (state.currentPage == 1) {
-                // Permissions page — show skip and next
                 Row {
-                    TextButton(onClick = { onAction(OnboardingContract.Action.SkipPermissions) }) {
+                    TextButton(
+                        onClick = { onAction(OnboardingContract.Action.SkipPermissions) },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = BlackBoxColors.TextMuted,
+                        ),
+                    ) {
                         Text(stringResource(Res.string.onboarding_skip))
                     }
                     Spacer(modifier = Modifier.width(Dimens.SpacingSm))
-                    Button(onClick = { onAction(OnboardingContract.Action.NextPage) }) {
+                    Button(
+                        onClick = { onAction(OnboardingContract.Action.NextPage) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BlackBoxColors.NeonGreen,
+                            contentColor = BlackBoxColors.TextOnNeon,
+                        ),
+                    ) {
                         Text(stringResource(Res.string.onboarding_next))
                     }
                 }
             } else {
-                Button(onClick = { onAction(OnboardingContract.Action.NextPage) }) {
+                Button(
+                    onClick = { onAction(OnboardingContract.Action.NextPage) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BlackBoxColors.NeonGreen,
+                        contentColor = BlackBoxColors.TextOnNeon,
+                    ),
+                ) {
                     Text(stringResource(Res.string.onboarding_next))
                 }
             }
@@ -144,7 +178,7 @@ fun OnboardingContent(
 }
 
 /**
- * Welcome page introducing BlackBox.
+ * Welcome page — BLACKBOX title with neon green and search icon.
  */
 @Composable
 private fun WelcomePage() {
@@ -152,16 +186,25 @@ private fun WelcomePage() {
         Icon(
             imageVector = Icons.Default.Search,
             contentDescription = null,
-            modifier = Modifier.size(Dimens.IconXl * 2),
-            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(96.dp),
+            tint = BlackBoxColors.NeonGreen,
         )
 
         Spacer(modifier = Modifier.height(Dimens.SpacingXl))
 
         Text(
+            text = "BLACKBOX",
+            style = MaterialTheme.typography.headlineLarge,
+            color = BlackBoxColors.NeonGreen,
+            textAlign = TextAlign.Center,
+        )
+
+        Spacer(modifier = Modifier.height(Dimens.SpacingMd))
+
+        Text(
             text = stringResource(Res.string.onboarding_p1_title),
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            style = MaterialTheme.typography.titleSmall,
+            color = BlackBoxColors.TextMuted,
             textAlign = TextAlign.Center,
         )
 
@@ -170,14 +213,14 @@ private fun WelcomePage() {
         Text(
             text = stringResource(Res.string.onboarding_p1_desc),
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = BlackBoxColors.TextMuted,
             textAlign = TextAlign.Center,
         )
     }
 }
 
 /**
- * Permissions page showing required permissions and their status.
+ * Permissions page — neon-bordered permission rows with grant/pending status.
  */
 @Composable
 private fun PermissionsPage(
@@ -188,16 +231,16 @@ private fun PermissionsPage(
         Icon(
             imageVector = Icons.Default.Settings,
             contentDescription = null,
-            modifier = Modifier.size(Dimens.IconXl * 2),
-            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(64.dp),
+            tint = BlackBoxColors.NeonGreen,
         )
 
         Spacer(modifier = Modifier.height(Dimens.SpacingXl))
 
         Text(
             text = stringResource(Res.string.onboarding_p2_title),
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            style = MaterialTheme.typography.headlineSmall,
+            color = BlackBoxColors.TextPrimary,
             textAlign = TextAlign.Center,
         )
 
@@ -205,8 +248,8 @@ private fun PermissionsPage(
 
         Text(
             text = stringResource(Res.string.onboarding_p2_desc),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+            color = BlackBoxColors.TextMuted,
             textAlign = TextAlign.Center,
         )
 
@@ -225,25 +268,29 @@ private fun PermissionsPage(
 }
 
 /**
- * Single permission row with granted/pending status.
+ * Single permission row displayed as a neon-bordered card.
+ *
+ * @param label The permission display name.
+ * @param granted Whether the permission is currently granted.
  */
 @Composable
 private fun PermissionRow(label: String, granted: Boolean) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = Dimens.SpacingSm),
+            .padding(vertical = Dimens.SpacingXs)
+            .neonBorder(
+                color = if (granted) BlackBoxColors.NeonGreen else BlackBoxColors.OutlineNeon,
+                cornerRadius = 4.dp,
+            )
+            .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingSm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = if (granted) Icons.Default.Check else Icons.Default.LocationOn,
             contentDescription = null,
             modifier = Modifier.size(Dimens.IconMd),
-            tint = if (granted) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+            tint = if (granted) BlackBoxColors.NeonGreen else BlackBoxColors.TextMuted,
         )
 
         Spacer(modifier = Modifier.width(Dimens.SpacingMd))
@@ -251,19 +298,14 @@ private fun PermissionRow(label: String, granted: Boolean) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = BlackBoxColors.TextPrimary,
+            modifier = Modifier.weight(1f),
         )
 
-        Spacer(modifier = Modifier.weight(1f))
-
         Text(
-            text = if (granted) "Granted" else "Pending",
+            text = if (granted) "GRANTED" else "PENDING",
             style = MaterialTheme.typography.labelSmall,
-            color = if (granted) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+            color = if (granted) BlackBoxColors.NeonGreen else BlackBoxColors.TextMuted,
         )
     }
 }
@@ -291,21 +333,23 @@ private fun UsageAccessRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = Dimens.SpacingSm),
+            .padding(vertical = Dimens.SpacingXs),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .neonBorder(
+                    color = if (granted) BlackBoxColors.NeonGreen else BlackBoxColors.OutlineNeon,
+                    cornerRadius = 4.dp,
+                )
+                .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingSm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = if (granted) Icons.Default.Check else Icons.Default.Settings,
                 contentDescription = null,
                 modifier = Modifier.size(Dimens.IconMd),
-                tint = if (granted) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+                tint = if (granted) BlackBoxColors.NeonGreen else BlackBoxColors.TextMuted,
             )
 
             Spacer(modifier = Modifier.width(Dimens.SpacingMd))
@@ -313,33 +357,43 @@ private fun UsageAccessRow(
             Text(
                 text = "App Usage Tracking",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = BlackBoxColors.TextPrimary,
                 modifier = Modifier.weight(1f),
             )
 
-            if (granted) {
-                Text(
-                    text = "Granted",
+            when {
+                granted -> Text(
+                    text = "GRANTED",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = BlackBoxColors.NeonGreen,
                 )
-            } else if (!requested) {
-                FilledTonalButton(onClick = onOpen) {
+                !requested -> FilledTonalButton(
+                    onClick = onOpen,
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = BlackBoxColors.SurfaceVariant,
+                        contentColor = BlackBoxColors.ElectricCyan,
+                    ),
+                ) {
                     Text("Open Settings", style = MaterialTheme.typography.labelSmall)
                 }
-            } else {
-                FilledTonalButton(onClick = onCheck) {
+                else -> FilledTonalButton(
+                    onClick = onCheck,
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = BlackBoxColors.SurfaceVariant,
+                        contentColor = BlackBoxColors.NeonGreen,
+                    ),
+                ) {
                     Text("I've enabled it", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
 
         if (!granted) {
-            Spacer(modifier = Modifier.height(Dimens.SpacingXs))
+            Spacer(modifier = Modifier.height(Dimens.SpacingXxs))
             Text(
                 text = "Required to track which apps you use. Not enabled by default.",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = BlackBoxColors.TextMuted,
                 modifier = Modifier.padding(start = Dimens.IconMd + Dimens.SpacingMd),
             )
         }
@@ -347,24 +401,33 @@ private fun UsageAccessRow(
 }
 
 /**
- * Final page — ready to start using BlackBox.
+ * Final page — "SYSTEM READY" with large neon pulse indicator.
  */
 @Composable
 private fun ReadyPage() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(
-            imageVector = Icons.Default.Check,
-            contentDescription = null,
-            modifier = Modifier.size(Dimens.IconXl * 2),
-            tint = MaterialTheme.colorScheme.primary,
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        NeonPulseIndicator(
+            color = BlackBoxColors.NeonGreen,
+            size = 80.dp,
         )
 
         Spacer(modifier = Modifier.height(Dimens.SpacingXl))
 
         Text(
-            text = stringResource(Res.string.onboarding_p3_title),
+            text = "SYSTEM READY",
             style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = BlackBoxColors.NeonGreen,
+            textAlign = TextAlign.Center,
+        )
+
+        Spacer(modifier = Modifier.height(Dimens.SpacingMd))
+
+        Text(
+            text = stringResource(Res.string.onboarding_p3_title),
+            style = MaterialTheme.typography.titleSmall,
+            color = BlackBoxColors.TextPrimary,
             textAlign = TextAlign.Center,
         )
 
@@ -373,7 +436,7 @@ private fun ReadyPage() {
         Text(
             text = stringResource(Res.string.onboarding_p3_desc),
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = BlackBoxColors.TextMuted,
             textAlign = TextAlign.Center,
         )
     }

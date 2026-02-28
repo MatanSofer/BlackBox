@@ -23,6 +23,7 @@ import com.blackbox.ui.navigation.BlackBoxBottomBar
 import com.blackbox.ui.navigation.BlackBoxNavHost
 import com.blackbox.ui.navigation.Screen
 import com.blackbox.ui.navigation.defaultBottomNavItems
+import com.blackbox.ui.theme.ScanLineOverlay
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -32,6 +33,9 @@ import org.jetbrains.compose.resources.stringResource
  * bottom navigation state, and wires the [BlackBoxNavHost] with
  * the [BlackBoxBottomBar]. Lives in the shared module so it can
  * be reused across platforms (Android, iOS).
+ *
+ * Wraps all content in [ScanLineOverlay] for the persistent cyberpunk
+ * scan-line animation effect.
  *
  * Shows a themed splash background while the onboarding state
  * is being loaded (null), preventing a flash of the wrong screen.
@@ -93,37 +97,39 @@ fun BlackBoxApp(
     )
     val showBottomBar = currentRoute in primaryRoutes
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        bottomBar = {
-            if (showBottomBar) {
-                BlackBoxBottomBar(
-                    currentRoute = currentRoute,
-                    onTabSelected = { route ->
-                        navController.navigate(route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
+    ScanLineOverlay {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            bottomBar = {
+                if (showBottomBar) {
+                    BlackBoxBottomBar(
+                        currentRoute = currentRoute,
+                        onTabSelected = { route ->
+                            navController.navigate(route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    items = bottomNavItems,
-                )
-            }
-        },
-    ) { innerPadding ->
-        val startDest = if (isOnboardingComplete) Screen.Search.route else Screen.Onboarding.route
-        BlackBoxNavHost(
-            navController = navController,
-            startDestination = startDest,
-            onStartService = onStartService,
-            onOpenUsageAccessSettings = onOpenUsageAccessSettings,
-            onRequestLocationPermission = onRequestLocationPermission,
-            onRequestActivityPermission = onRequestActivityPermission,
-            onRequestNotificationPermission = onRequestNotificationPermission,
-            onOpenAppSettings = onOpenAppSettings,
-            modifier = Modifier.padding(innerPadding),
-        )
+                        },
+                        items = bottomNavItems,
+                    )
+                }
+            },
+        ) { innerPadding ->
+            val startDest = if (isOnboardingComplete) Screen.Search.route else Screen.Onboarding.route
+            BlackBoxNavHost(
+                navController = navController,
+                startDestination = startDest,
+                onStartService = onStartService,
+                onOpenUsageAccessSettings = onOpenUsageAccessSettings,
+                onRequestLocationPermission = onRequestLocationPermission,
+                onRequestActivityPermission = onRequestActivityPermission,
+                onRequestNotificationPermission = onRequestNotificationPermission,
+                onOpenAppSettings = onOpenAppSettings,
+                modifier = Modifier.padding(innerPadding),
+            )
+        }
     }
 }

@@ -3,46 +3,42 @@ package com.blackbox.ui.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * BlackBox color palette.
+ * BlackBox cyberpunk color palette.
  *
- * Aviation/flight-recorder-inspired design: deep blue primary with amber accent.
- * Dark-first design language that conveys trust, security, and depth.
+ * Near-black backgrounds with neon green primary, electric cyan secondary,
+ * and neon magenta tertiary/error. Dark-only design language.
  */
 object BlackBoxColors {
 
-    // ── Primary: Deep Blue ──
-    val DeepBlue = Color(0xFF1A237E)
-    val DeepBlueDark = Color(0xFF0D1259)
-    val DeepBlueLight = Color(0xFF283593)
-    val DeepBlueSurface = Color(0xFFC5CAE9)
+    // ── Backgrounds & Surfaces ──
+    val Background = Color(0xFF050510)
+    val Surface = Color(0xFF0D0D20)
+    val SurfaceVariant = Color(0xFF141428)
 
-    // ── Secondary / Accent: Amber ──
-    val Amber = Color(0xFFFFB300)
-    val AmberDark = Color(0xFFFF8F00)
-    val AmberLight = Color(0xFFFFE082)
-    val AmberSurface = Color(0xFFFFF8E1)
+    // ── Primary: Neon Green ──
+    val NeonGreen = Color(0xFF00FF41)
+    val NeonGreenFaint = Color(0x1A00FF41)   // 10% — glow card fill
 
-    // ── Backgrounds & Surfaces (Dark) ──
-    val DarkBackground = Color(0xFF0D1117)
-    val DarkSurface = Color(0xFF161B22)
-    val DarkSurfaceVariant = Color(0xFF1E2530)
-    val DarkOutline = Color(0xFF30363D)
+    // ── Secondary: Electric Cyan ──
+    val ElectricCyan = Color(0xFF00D4FF)
+    val ElectricCyanFaint = Color(0x1A00D4FF) // 10% — secondary card fill
 
-    // ── Backgrounds & Surfaces (Light) ──
-    val LightBackground = Color(0xFFFAFAFA)
-    val LightSurface = Color(0xFFFFFFFF)
-    val LightSurfaceVariant = Color(0xFFF0F0F0)
-    val LightOutline = Color(0xFFD0D0D0)
+    // ── Tertiary / Error: Neon Magenta ──
+    val NeonMagenta = Color(0xFFFF0064)
+    val NeonMagentaFaint = Color(0x1AFF0064)
 
     // ── Text ──
-    val TextPrimaryDark = Color(0xFFFFFFFF)
-    val TextSecondary = Color(0xFF8B949E)
-    val TextPrimaryLight = Color(0xFF1A1A1A)
-    val TextSecondaryLight = Color(0xFF666666)
+    val TextPrimary = Color(0xFFE0FFE8)       // green-tinted white
+    val TextMuted = Color(0xFF808099)
+    val TextOnNeon = Color(0xFF050510)         // dark text on neon buttons
 
-    // ── Semantic ──
-    val Success = Color(0xFF4CAF50)
-    val Error = Color(0xFFF44336)
-    val Warning = Color(0xFFFF9800)
-    val OnError = Color(0xFFFFFFFF)
+    // ── Borders / Outlines ──
+    val OutlineNeon = Color(0x3300FF41)        // 20% neon green
+    val OutlineFaint = Color(0xFF1A1A35)
+
+    // ── Semantic (kept for UiError compatibility) ──
+    val Success = NeonGreen
+    val Error = NeonMagenta
+    val Warning = ElectricCyan
+    val OnError = TextOnNeon
 }

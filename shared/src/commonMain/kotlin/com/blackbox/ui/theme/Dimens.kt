@@ -70,4 +70,13 @@ object Dimens {
     // ── Loading indicator ──
     val LoadingSize = 48.dp
     val LoadingSm = 24.dp
+
+    // ── Cyberpunk neon effects ──
+    val NeonBorderWidth = 1.dp
+    val NeonGlowBlur = 8.dp
+    val ScanLineHeight = 2.dp
+    val TimelineNeonWidth = 2.dp
+    val TimelineMarkerNeon = 16.dp
+    val InsightBarMaxHeight = 80.dp
+    val BottomBarNeonIndicatorHeight = 3.dp
 }

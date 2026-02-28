@@ -10,15 +10,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import blackbox.shared.generated.resources.Res
 import blackbox.shared.generated.resources.settings_collectors_title
 import blackbox.shared.generated.resources.settings_interval
@@ -26,15 +26,17 @@ import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.settings.CollectorSetting
 import com.blackbox.ui.common.ErrorView
 import com.blackbox.ui.common.LoadingIndicator
+import com.blackbox.ui.theme.BlackBoxColors
 import com.blackbox.ui.theme.BlackBoxTheme
 import com.blackbox.ui.theme.Dimens
+import com.blackbox.ui.theme.neonBorder
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Pure UI content for the Settings screen.
+ * Pure UI content for the Settings screen — cyberpunk collector control panel.
  *
- * Renders collector toggle cards with enable/disable switches
- * and collection interval information.
+ * Renders collector toggle cards with neon borders, monospace labels,
+ * neon green switches, and magenta permission warnings.
  *
  * @param state Current UI state from the ViewModel.
  * @param onAction Callback to dispatch user actions.
@@ -52,9 +54,9 @@ fun SettingsContent(
             .padding(Dimens.PaddingScreen),
     ) {
         Text(
-            text = stringResource(Res.string.settings_collectors_title),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            text = stringResource(Res.string.settings_collectors_title).uppercase(),
+            style = MaterialTheme.typography.labelLarge,
+            color = BlackBoxColors.NeonGreen,
         )
 
         Spacer(modifier = Modifier.height(Dimens.SpacingMd))
@@ -97,13 +99,12 @@ fun SettingsContent(
 }
 
 /**
- * Card displaying a single collector's settings with a toggle switch.
+ * Cyberpunk card displaying a single collector's settings with a neon toggle switch.
  *
  * The toggle reflects the **effective** state: both [CollectorSetting.isEnabled]
  * (user preference) AND [permissionGranted] must be true for the switch to appear
  * on. If the user's preference is enabled but the permission is missing, the switch
- * shows off and a "Permission required" label is displayed. The ViewModel handles
- * requesting the permission when the user taps the switch.
+ * shows off and a neon magenta "Permission required" label is displayed.
  *
  * @param setting The collector setting to display.
  * @param permissionGranted Whether the required runtime permission is currently granted.
@@ -118,56 +119,62 @@ private fun CollectorSettingCard(
     modifier: Modifier = Modifier,
 ) {
     val effectivelyEnabled = setting.isEnabled && permissionGranted
-    val needsPermission = setting.isEnabled && !permissionGranted
+    // Show "PERMISSION REQUIRED" whenever the permission is not granted,
+    // regardless of enabled state — so users see upfront what is needed.
+    val needsPermission = !permissionGranted
 
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(Dimens.PaddingCard),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = formatCollectorName(setting.collectorType),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-
-                if (needsPermission) {
-                    Text(
-                        text = "Permission required",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                } else {
-                    val intervalText = if (setting.collectionIntervalMs == 0L) {
-                        "Event-driven"
-                    } else {
-                        stringResource(
-                            Res.string.settings_interval,
-                            setting.collectionIntervalMs / 1000,
-                        )
-                    }
-                    Text(
-                        text = intervalText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            Switch(
-                checked = effectivelyEnabled,
-                onCheckedChange = onToggle,
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .neonBorder(
+                color = if (effectivelyEnabled) BlackBoxColors.OutlineNeon else BlackBoxColors.OutlineFaint,
+                cornerRadius = 4.dp,
             )
+            .padding(Dimens.PaddingCard),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = formatCollectorName(setting.collectorType).uppercase(),
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (effectivelyEnabled) BlackBoxColors.TextPrimary else BlackBoxColors.TextMuted,
+            )
+
+            if (needsPermission) {
+                Text(
+                    text = "PERMISSION REQUIRED",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = BlackBoxColors.NeonMagenta,
+                )
+            } else {
+                val intervalText = if (setting.collectionIntervalMs == 0L) {
+                    "EVENT-DRIVEN"
+                } else {
+                    stringResource(
+                        Res.string.settings_interval,
+                        setting.collectionIntervalMs / 1000,
+                    ).uppercase()
+                }
+                Text(
+                    text = intervalText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = BlackBoxColors.TextMuted,
+                )
+            }
         }
+
+        Switch(
+            checked = effectivelyEnabled,
+            onCheckedChange = onToggle,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = BlackBoxColors.TextOnNeon,
+                checkedTrackColor = BlackBoxColors.NeonGreen,
+                uncheckedThumbColor = BlackBoxColors.TextMuted,
+                uncheckedTrackColor = BlackBoxColors.SurfaceVariant,
+                uncheckedBorderColor = BlackBoxColors.OutlineNeon,
+            ),
+        )
     }
 }
 

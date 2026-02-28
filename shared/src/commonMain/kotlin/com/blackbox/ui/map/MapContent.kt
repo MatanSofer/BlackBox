@@ -1,5 +1,6 @@
 package com.blackbox.ui.map
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,8 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,19 +22,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.blackbox.domain.model.place.KnownPlace
 import com.blackbox.domain.model.place.PlaceCategory
 import com.blackbox.ui.common.EmptyStateView
 import com.blackbox.ui.common.ErrorView
 import com.blackbox.ui.common.LoadingIndicator
+import com.blackbox.ui.theme.BlackBoxColors
 import com.blackbox.ui.theme.BlackBoxTheme
 import com.blackbox.ui.theme.Dimens
+import com.blackbox.ui.theme.neonBorder
+import com.blackbox.ui.theme.neonGlowBackground
 
 /**
- * Pure UI content for the Map screen.
+ * Pure UI content for the Map screen — cyberpunk known locations list.
  *
- * Displays a list of known places. The actual map view (OSMDroid)
- * will be integrated in a future step as it requires platform-specific code.
+ * Displays a neon-styled "KNOWN LOCATIONS" header and a list of
+ * known places with electric cyan neon borders. The actual map
+ * (OSMDroid) will be integrated in a future step.
  *
  * @param state Current UI state from the ViewModel.
  * @param onAction Callback to dispatch user actions.
@@ -53,12 +57,11 @@ fun MapContent(
             .padding(Dimens.PaddingScreen),
     ) {
         Text(
-            text = "Known Places",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
+            text = "KNOWN LOCATIONS",
+            style = MaterialTheme.typography.labelLarge,
+            color = BlackBoxColors.NeonGreen,
+            modifier = Modifier.padding(bottom = Dimens.SpacingMd),
         )
-
-        Spacer(modifier = Modifier.height(Dimens.SpacingMd))
 
         when {
             state.isLoading -> {
@@ -74,7 +77,7 @@ fun MapContent(
 
             state.knownPlaces.isEmpty() -> {
                 EmptyStateView(
-                    title = "No Places Yet",
+                    title = "NO PLACES YET",
                     message = "Places will appear automatically as BlackBox detects your frequented locations.",
                 )
             }
@@ -96,7 +99,9 @@ fun MapContent(
 }
 
 /**
- * Card displaying a single known place.
+ * Cyberpunk card displaying a single known place.
+ *
+ * Uses electric cyan neon border and accent color for the location icon.
  *
  * @param place The known place data.
  * @param onClick Callback when the card is tapped.
@@ -108,42 +113,60 @@ private fun PlaceCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .neonGlowBackground(BlackBoxColors.ElectricCyanFaint)
+            .neonBorder(color = BlackBoxColors.ElectricCyan, cornerRadius = 4.dp)
+            .padding(Dimens.PaddingCard)
+            .then(Modifier.clickable(onClick = onClick)),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.padding(Dimens.PaddingCard),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Default.LocationOn,
-                contentDescription = null,
-                modifier = Modifier.size(Dimens.IconMd),
-                tint = MaterialTheme.colorScheme.primary,
+        Icon(
+            imageVector = Icons.Default.LocationOn,
+            contentDescription = null,
+            modifier = Modifier.size(Dimens.IconMd),
+            tint = BlackBoxColors.ElectricCyan,
+        )
+
+        Spacer(modifier = Modifier.width(Dimens.SpacingMd))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = place.name,
+                style = MaterialTheme.typography.bodyLarge,
+                color = BlackBoxColors.TextPrimary,
             )
 
-            Spacer(modifier = Modifier.width(Dimens.SpacingMd))
+            Spacer(modifier = Modifier.height(Dimens.SpacingXxs))
 
-            Column(modifier = Modifier.weight(1f)) {
+            Row {
+                // Category badge chip
                 Text(
-                    text = place.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    text = place.category.name,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = BlackBoxColors.ElectricCyan,
+                    modifier = Modifier
+                        .neonBorder(
+                            color = BlackBoxColors.ElectricCyan,
+                            cornerRadius = 2.dp,
+                        )
+                        .padding(
+                            horizontal = Dimens.SpacingXs,
+                            vertical = 1.dp,
+                        ),
                 )
-
+                Spacer(modifier = Modifier.width(Dimens.SpacingSm))
                 Text(
-                    text = "${place.category.name} · ${place.visitCount} visits",
+                    text = "${place.visitCount} visits",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = BlackBoxColors.TextMuted,
                 )
             }
         }
     }
 }
+
 
 @Preview(showBackground = true)
 @Composable
