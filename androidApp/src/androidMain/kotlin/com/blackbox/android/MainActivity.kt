@@ -2,6 +2,7 @@ package com.blackbox.android
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -64,17 +65,13 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             // Permission launchers — results are handled by the ON_RESUME observer
-            // in OnboardingScreen rather than in these callbacks, so no result
-            // threading through the composable hierarchy is needed.
+            // in OnboardingScreen / SettingsScreen rather than in these callbacks,
+            // so no result threading through the composable hierarchy is needed.
             val locationLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions(),
             ) { /* result picked up on resume */ }
 
-            val activityLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestPermission(),
-            ) { /* result picked up on resume */ }
-
-            val notifLauncher = rememberLauncherForActivityResult(
+            val singlePermissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestPermission(),
             ) { /* result picked up on resume */ }
 
@@ -97,13 +94,20 @@ class MainActivity : ComponentActivity() {
                     },
                     onRequestActivityPermission = {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            activityLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                            singlePermissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
                         }
                     },
                     onRequestNotificationPermission = {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            singlePermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                         }
+                    },
+                    onOpenAppSettings = {
+                        startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", packageName, null)
+                            },
+                        )
                     },
                 )
             }

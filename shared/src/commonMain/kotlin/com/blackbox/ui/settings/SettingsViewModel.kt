@@ -3,6 +3,7 @@ package com.blackbox.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.blackbox.domain.model.record.CollectorType
+import com.blackbox.domain.model.settings.CollectorSetting
 import com.blackbox.domain.repository.SettingsRepository
 import com.blackbox.domain.usecase.settings.UpdateCollectorSettingUseCase
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -20,12 +21,23 @@ import kotlinx.coroutines.launch
  * Manages collector settings by observing the settings repository
  * and delegating updates through the use case layer.
  *
+ * The toggle for each collector reflects its **effective** state:
+ * both `isEnabled` (user preference) and the required runtime permission
+ * must be true for the collector to appear active. If the user tries to
+ * enable a collector whose permission is not granted, the ViewModel saves
+ * the preference (so it auto-enables once the permission is granted) and
+ * emits [SettingsContract.Event.RequestPermission] to trigger the system dialog.
+ *
  * @property settingsRepository Repository for reading collector settings.
  * @property updateCollectorSettingUseCase Use case for toggling collectors.
+ * @property checkPermission Platform function that returns whether the runtime
+ *   permission required by a given [CollectorType] is currently granted.
+ *   Collectors that need no special permission always return `true`.
  */
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val updateCollectorSettingUseCase: UpdateCollectorSettingUseCase,
+    private val checkPermission: (CollectorType) -> Boolean = { true },
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsContract.State())
@@ -41,6 +53,7 @@ class SettingsViewModel(
     init {
         observeSettings()
         loadSettings()
+        refreshPermissions()
     }
 
     /**
@@ -50,11 +63,14 @@ class SettingsViewModel(
         when (action) {
             is SettingsContract.Action.CollectorToggled -> handleToggle(action.collectorType, action.enabled)
             is SettingsContract.Action.Refresh -> loadSettings()
+            is SettingsContract.Action.RefreshPermissions -> refreshPermissions()
         }
     }
 
     private fun handleToggle(collectorType: CollectorType, enabled: Boolean) {
         viewModelScope.launch {
+            // Always persist the user's intent so the collector auto-activates
+            // as soon as the permission is granted.
             updateCollectorSettingUseCase(collectorType, enabled)
                 .onFailure { error ->
                     _events.emit(
@@ -62,8 +78,31 @@ class SettingsViewModel(
                             error.message ?: "Failed to update setting",
                         ),
                     )
+                    return@launch
                 }
+
+            // If enabling but the permission isn't granted, send the user to
+            // the appropriate settings screen where they can grant it.
+            // App Usage requires a dedicated Usage Access settings page;
+            // all other collectors use the standard app settings page.
+            if (enabled && !checkPermission(collectorType)) {
+                val event = if (collectorType == CollectorType.APP_USAGE) {
+                    SettingsContract.Event.OpenUsageAccessSettings
+                } else {
+                    SettingsContract.Event.OpenAppSettings
+                }
+                _events.emit(event)
+            }
         }
+    }
+
+    /**
+     * Queries the current runtime permission state for every collector and
+     * updates [SettingsContract.State.permissionsGranted].
+     */
+    private fun refreshPermissions() {
+        val permissions = CollectorType.entries.associateWith { checkPermission(it) }
+        _state.update { it.copy(permissionsGranted = permissions) }
     }
 
     private fun loadSettings() {

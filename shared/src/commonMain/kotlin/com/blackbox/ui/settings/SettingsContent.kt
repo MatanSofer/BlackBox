@@ -76,8 +76,10 @@ fun SettingsContent(
                     verticalArrangement = Arrangement.spacedBy(Dimens.SpacingSm),
                 ) {
                     items(state.collectorSettings, key = { it.collectorType.name }) { setting ->
+                        val permissionGranted = state.permissionsGranted[setting.collectorType] ?: true
                         CollectorSettingCard(
                             setting = setting,
+                            permissionGranted = permissionGranted,
                             onToggle = { enabled ->
                                 onAction(
                                     SettingsContract.Action.CollectorToggled(
@@ -97,16 +99,27 @@ fun SettingsContent(
 /**
  * Card displaying a single collector's settings with a toggle switch.
  *
+ * The toggle reflects the **effective** state: both [CollectorSetting.isEnabled]
+ * (user preference) AND [permissionGranted] must be true for the switch to appear
+ * on. If the user's preference is enabled but the permission is missing, the switch
+ * shows off and a "Permission required" label is displayed. The ViewModel handles
+ * requesting the permission when the user taps the switch.
+ *
  * @param setting The collector setting to display.
+ * @param permissionGranted Whether the required runtime permission is currently granted.
  * @param onToggle Callback when the toggle is changed.
  * @param modifier Optional [Modifier].
  */
 @Composable
 private fun CollectorSettingCard(
     setting: CollectorSetting,
+    permissionGranted: Boolean,
     onToggle: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val effectivelyEnabled = setting.isEnabled && permissionGranted
+    val needsPermission = setting.isEnabled && !permissionGranted
+
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -127,23 +140,31 @@ private fun CollectorSettingCard(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
 
-                val intervalText = if (setting.collectionIntervalMs == 0L) {
-                    "Event-driven"
+                if (needsPermission) {
+                    Text(
+                        text = "Permission required",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 } else {
-                    stringResource(
-                        Res.string.settings_interval,
-                        setting.collectionIntervalMs / 1000,
+                    val intervalText = if (setting.collectionIntervalMs == 0L) {
+                        "Event-driven"
+                    } else {
+                        stringResource(
+                            Res.string.settings_interval,
+                            setting.collectionIntervalMs / 1000,
+                        )
+                    }
+                    Text(
+                        text = intervalText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text(
-                    text = intervalText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
 
             Switch(
-                checked = setting.isEnabled,
+                checked = effectivelyEnabled,
                 onCheckedChange = onToggle,
             )
         }

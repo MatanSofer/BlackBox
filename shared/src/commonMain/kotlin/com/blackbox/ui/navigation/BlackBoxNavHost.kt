@@ -27,6 +27,10 @@ import com.blackbox.ui.timeline.TimelineScreen
  * @param onRequestLocationPermission Callback to trigger the system location permission dialog.
  * @param onRequestActivityPermission Callback to trigger the activity recognition permission dialog.
  * @param onRequestNotificationPermission Callback to trigger the notification permission dialog.
+ * @param onOpenAppSettings Callback invoked from the Settings screen when the user tries to
+ *   enable a collector without the required permission. Opens the system app settings page
+ *   so the user can grant the permission directly — avoids Android's permission dialog
+ *   "two-strikes" permanent-denial rule.
  * @param modifier Optional [Modifier] for the NavHost container.
  */
 @Composable
@@ -38,6 +42,7 @@ fun BlackBoxNavHost(
     onRequestLocationPermission: () -> Unit = {},
     onRequestActivityPermission: () -> Unit = {},
     onRequestNotificationPermission: () -> Unit = {},
+    onOpenAppSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     NavHost(
@@ -72,7 +77,10 @@ fun BlackBoxNavHost(
             InsightsScreen()
         }
         composable(Screen.Settings.route) {
-            SettingsScreen()
+            SettingsScreen(
+                onOpenAppSettings = onOpenAppSettings,
+                onOpenUsageAccessSettings = onOpenUsageAccessSettings,
+            )
         }
     }
 }

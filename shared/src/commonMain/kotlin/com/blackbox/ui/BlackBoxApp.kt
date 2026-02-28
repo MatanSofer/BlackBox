@@ -45,6 +45,9 @@ import org.jetbrains.compose.resources.stringResource
  * @param onRequestLocationPermission Platform callback to show the location permission dialog.
  * @param onRequestActivityPermission Platform callback to show the activity recognition dialog.
  * @param onRequestNotificationPermission Platform callback to show the notification permission dialog.
+ * @param onOpenAppSettings Platform callback invoked from Settings when the user tries to enable
+ *   a collector whose permission is not yet granted. Opens the system app settings page so
+ *   the user can grant the permission — avoids Android's two-strikes permanent-denial rule.
  */
 @Composable
 fun BlackBoxApp(
@@ -54,6 +57,7 @@ fun BlackBoxApp(
     onRequestLocationPermission: () -> Unit = {},
     onRequestActivityPermission: () -> Unit = {},
     onRequestNotificationPermission: () -> Unit = {},
+    onOpenAppSettings: () -> Unit = {},
 ) {
     if (isOnboardingComplete == null) {
         Box(
@@ -118,6 +122,7 @@ fun BlackBoxApp(
             onRequestLocationPermission = onRequestLocationPermission,
             onRequestActivityPermission = onRequestActivityPermission,
             onRequestNotificationPermission = onRequestNotificationPermission,
+            onOpenAppSettings = onOpenAppSettings,
             modifier = Modifier.padding(innerPadding),
         )
     }
