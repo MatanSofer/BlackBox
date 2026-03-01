@@ -112,22 +112,31 @@ class ConnectivityCollector(
         return listOf(record)
     }
 
-    /** Returns the cellular network type as a string (e.g., "LTE", "5G"). */
+    /**
+     * Returns the cellular network type as a string (e.g., "LTE", "5G").
+     *
+     * [TelephonyManager.dataNetworkType] requires READ_PHONE_STATE on API 29+,
+     * which we intentionally do not request. Returns null gracefully on SecurityException.
+     */
     private fun getCellularType(): String? {
         val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
             ?: return null
-        return when (tm.dataNetworkType) {
-            TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
-            TelephonyManager.NETWORK_TYPE_NR -> "5G"
-            TelephonyManager.NETWORK_TYPE_HSDPA,
-            TelephonyManager.NETWORK_TYPE_HSUPA,
-            TelephonyManager.NETWORK_TYPE_HSPA,
-            TelephonyManager.NETWORK_TYPE_HSPAP -> "HSPA"
-            TelephonyManager.NETWORK_TYPE_UMTS -> "3G"
-            TelephonyManager.NETWORK_TYPE_EDGE -> "EDGE"
-            TelephonyManager.NETWORK_TYPE_GPRS -> "GPRS"
-            TelephonyManager.NETWORK_TYPE_UNKNOWN -> null
-            else -> "OTHER"
+        return try {
+            when (tm.dataNetworkType) {
+                TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
+                TelephonyManager.NETWORK_TYPE_NR -> "5G"
+                TelephonyManager.NETWORK_TYPE_HSDPA,
+                TelephonyManager.NETWORK_TYPE_HSUPA,
+                TelephonyManager.NETWORK_TYPE_HSPA,
+                TelephonyManager.NETWORK_TYPE_HSPAP -> "HSPA"
+                TelephonyManager.NETWORK_TYPE_UMTS -> "3G"
+                TelephonyManager.NETWORK_TYPE_EDGE -> "EDGE"
+                TelephonyManager.NETWORK_TYPE_GPRS -> "GPRS"
+                TelephonyManager.NETWORK_TYPE_UNKNOWN -> null
+                else -> "OTHER"
+            }
+        } catch (_: SecurityException) {
+            null // READ_PHONE_STATE not granted — cellular type not available
         }
     }
 

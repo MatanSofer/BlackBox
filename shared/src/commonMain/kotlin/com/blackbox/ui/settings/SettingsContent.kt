@@ -92,6 +92,22 @@ fun SettingsContent(
                             },
                         )
                     }
+
+                    item {
+                        Spacer(modifier = Modifier.height(Dimens.SpacingMd))
+                        Text(
+                            text = "DATA INSPECTION",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = BlackBoxColors.NeonGreen,
+                        )
+                        Spacer(modifier = Modifier.height(Dimens.SpacingSm))
+                        DataInspectionCard(
+                            isRawDataViewEnabled = state.isRawDataViewEnabled,
+                            onToggle = { enabled ->
+                                onAction(SettingsContract.Action.RawDataViewToggled(enabled))
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -179,6 +195,61 @@ private fun CollectorSettingCard(
 }
 
 /**
+ * Card for the Data Inspection section — toggles raw collector data in the Timeline.
+ *
+ * Unlike collector cards this has no permission implications; it is purely
+ * a display preference. A subtitle explains the purpose to orient developers
+ * and power users.
+ *
+ * @param isRawDataViewEnabled Current state of the toggle.
+ * @param onToggle Callback when the toggle is changed.
+ * @param modifier Optional [Modifier].
+ */
+@Composable
+private fun DataInspectionCard(
+    isRawDataViewEnabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .neonBorder(
+                color = if (isRawDataViewEnabled) BlackBoxColors.ElectricCyan else BlackBoxColors.OutlineFaint,
+                cornerRadius = 4.dp,
+            )
+            .padding(Dimens.PaddingCard),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "SHOW ALL COLLECTORS IN TIMELINE",
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (isRawDataViewEnabled) BlackBoxColors.TextPrimary else BlackBoxColors.TextMuted,
+            )
+            Text(
+                text = "Displays raw records from all 10 collectors. Use to verify data collection is working.",
+                style = MaterialTheme.typography.bodySmall,
+                color = BlackBoxColors.TextMuted,
+            )
+        }
+
+        Switch(
+            checked = isRawDataViewEnabled,
+            onCheckedChange = onToggle,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = BlackBoxColors.TextOnNeon,
+                checkedTrackColor = BlackBoxColors.ElectricCyan,
+                uncheckedThumbColor = BlackBoxColors.TextMuted,
+                uncheckedTrackColor = BlackBoxColors.SurfaceVariant,
+                uncheckedBorderColor = BlackBoxColors.OutlineNeon,
+            ),
+        )
+    }
+}
+
+/**
  * Formats a [CollectorType] enum into a human-readable name.
  */
 private fun formatCollectorName(type: CollectorType): String {
@@ -217,6 +288,7 @@ private fun SettingsContentWithDataPreview() {
                     CollectorSetting(CollectorType.BAROMETER, isEnabled = false, collectionIntervalMs = 300_000),
                     CollectorSetting(CollectorType.LIGHT, isEnabled = false, collectionIntervalMs = 300_000),
                 ),
+                isRawDataViewEnabled = true,
             ),
             onAction = {},
         )

@@ -1,6 +1,7 @@
 package com.blackbox.ui.timeline
 
-import com.blackbox.domain.model.timeline.TimelineEntry
+import com.blackbox.domain.model.record.CollectorType
+import com.blackbox.domain.model.timeline.CollectorGroup
 
 /**
  * MVI contract for the Timeline screen.
@@ -13,13 +14,15 @@ object TimelineContract {
      *
      * @property selectedDate ISO date string for the currently viewed day.
      * @property isLoading Whether timeline data is being loaded.
-     * @property entries Timeline entries for the selected day.
+     * @property groups Collector groups for the selected day, each displayed as an expandable card.
+     * @property showAllCollectors Whether the Timeline is showing all 10 collectors' raw records.
      * @property error Error message to display, if any.
      */
     data class State(
         val selectedDate: String = "",
         val isLoading: Boolean = false,
-        val entries: List<TimelineEntry> = emptyList(),
+        val groups: List<CollectorGroup> = emptyList(),
+        val showAllCollectors: Boolean = false,
         val error: String? = null,
     )
 
@@ -33,10 +36,10 @@ object TimelineContract {
         data object PreviousDay : Action
         /** User navigated to the next day. */
         data object NextDay : Action
-        /** User tapped a timeline entry. */
-        data class EntryClicked(val entry: TimelineEntry) : Action
         /** User pulled to refresh. */
         data object Refresh : Action
+        /** User tapped a group card header to expand or collapse it. */
+        data class GroupToggled(val collectorType: CollectorType?) : Action
     }
 
     /**

@@ -16,6 +16,7 @@ import com.blackbox.domain.usecase.record.SaveLocationRecordUseCase
 import com.blackbox.domain.usecase.record.SaveRecordUseCase
 import com.blackbox.domain.usecase.settings.UpdateCollectorSettingUseCase
 import com.blackbox.domain.usecase.timeline.GenerateDailySummaryUseCase
+import com.blackbox.domain.usecase.timeline.GetCollectorGroupsUseCase
 import com.blackbox.domain.usecase.timeline.GetTimelineUseCase
 import org.koin.dsl.module
 
@@ -42,6 +43,7 @@ val useCaseModule = module {
 
     // Timeline use cases
     single { GetTimelineUseCase(get(), get(), get(), get(), get()) }
+    single { GetCollectorGroupsUseCase(get(), get(), get(), get(), get()) }
     single { GenerateDailySummaryUseCase(get(), get(), get(), get()) }
 
     // Place use cases

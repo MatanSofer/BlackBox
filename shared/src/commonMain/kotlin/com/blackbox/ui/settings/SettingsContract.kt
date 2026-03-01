@@ -18,6 +18,7 @@ object SettingsContract {
      *   currently granted for each collector. Collectors with no required
      *   permission are always mapped to `true`.
      * @property isServiceRunning Whether the foreground service is running.
+     * @property isRawDataViewEnabled Whether the Timeline shows all 10 collectors' raw records.
      * @property error Error message to display, if any.
      */
     data class State(
@@ -25,6 +26,7 @@ object SettingsContract {
         val collectorSettings: List<CollectorSetting> = emptyList(),
         val permissionsGranted: Map<CollectorType, Boolean> = emptyMap(),
         val isServiceRunning: Boolean = false,
+        val isRawDataViewEnabled: Boolean = false,
         val error: String? = null,
     )
 
@@ -38,6 +40,8 @@ object SettingsContract {
         data object Refresh : Action
         /** Screen resumed — re-check runtime permission states. */
         data object RefreshPermissions : Action
+        /** User toggled the raw data view in the Timeline. */
+        data class RawDataViewToggled(val enabled: Boolean) : Action
     }
 
     /**

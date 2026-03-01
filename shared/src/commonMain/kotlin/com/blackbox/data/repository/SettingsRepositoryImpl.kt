@@ -2,6 +2,7 @@ package com.blackbox.data.repository
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.blackbox.data.database.BlackBoxDatabase
 import com.blackbox.data.mapper.SettingsMapper
 import com.blackbox.domain.model.record.CollectorType
@@ -113,8 +114,39 @@ class SettingsRepositoryImpl(
         }
     }
 
+    override fun observeRawDataViewEnabled(): Flow<Boolean> {
+        return database.blackBoxDatabaseQueries
+            .getSettingForCollector(RAW_DATA_VIEW_KEY)
+            .asFlow()
+            .mapToOneOrNull(Dispatchers.IO)
+            .map { row -> row?.is_enabled == 1L }
+    }
+
+    override suspend fun isRawDataViewEnabled(): Boolean {
+        return withContext(Dispatchers.IO) {
+            database.blackBoxDatabaseQueries
+                .getSettingForCollector(RAW_DATA_VIEW_KEY)
+                .executeAsOneOrNull()
+                ?.is_enabled == 1L
+        }
+    }
+
+    override suspend fun setRawDataViewEnabled(enabled: Boolean) {
+        withContext(Dispatchers.IO) {
+            logger.i(TAG, "Setting raw data view enabled=$enabled")
+            database.blackBoxDatabaseQueries.insertSetting(
+                collector_type = RAW_DATA_VIEW_KEY,
+                is_enabled = if (enabled) 1L else 0L,
+                collection_interval_ms = 0L,
+                custom_config_json = null,
+                updated_at = kotlinx.datetime.Clock.System.now().toEpochMilliseconds(),
+            )
+        }
+    }
+
     companion object {
         private const val TAG = "SettingsRepository"
         private const val ONBOARDING_KEY = "_ONBOARDING_COMPLETE"
+        private const val RAW_DATA_VIEW_KEY = "_RAW_DATA_VIEW_ENABLED"
     }
 }

@@ -54,6 +54,7 @@ class SettingsViewModel(
         observeSettings()
         loadSettings()
         refreshPermissions()
+        loadRawDataViewEnabled()
     }
 
     /**
@@ -64,6 +65,7 @@ class SettingsViewModel(
             is SettingsContract.Action.CollectorToggled -> handleToggle(action.collectorType, action.enabled)
             is SettingsContract.Action.Refresh -> loadSettings()
             is SettingsContract.Action.RefreshPermissions -> refreshPermissions()
+            is SettingsContract.Action.RawDataViewToggled -> handleRawDataViewToggled(action.enabled)
         }
     }
 
@@ -116,6 +118,30 @@ class SettingsViewModel(
                     _state.update {
                         it.copy(isLoading = false, error = error.message ?: "Failed to load settings")
                     }
+                }
+        }
+    }
+
+    private fun loadRawDataViewEnabled() {
+        viewModelScope.launch {
+            runCatching { settingsRepository.isRawDataViewEnabled() }
+                .onSuccess { enabled ->
+                    _state.update { it.copy(isRawDataViewEnabled = enabled) }
+                }
+        }
+    }
+
+    private fun handleRawDataViewToggled(enabled: Boolean) {
+        viewModelScope.launch {
+            _state.update { it.copy(isRawDataViewEnabled = enabled) }
+            runCatching { settingsRepository.setRawDataViewEnabled(enabled) }
+                .onFailure { error ->
+                    _state.update { it.copy(isRawDataViewEnabled = !enabled) }
+                    _events.emit(
+                        SettingsContract.Event.ShowSnackbar(
+                            error.message ?: "Failed to update setting",
+                        ),
+                    )
                 }
         }
     }

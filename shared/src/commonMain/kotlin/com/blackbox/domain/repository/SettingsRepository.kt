@@ -32,4 +32,18 @@ interface SettingsRepository {
 
     /** Marks onboarding as completed. */
     suspend fun setOnboardingComplete()
+
+    /** Returns whether the raw data view (all 10 collectors) is enabled in the Timeline. */
+    suspend fun isRawDataViewEnabled(): Boolean
+
+    /**
+     * Observes the raw data view setting as a reactive [Flow].
+     *
+     * Emits the current value immediately and again whenever the setting is changed,
+     * allowing the Timeline screen to react to Settings changes without an app restart.
+     */
+    fun observeRawDataViewEnabled(): Flow<Boolean>
+
+    /** Sets whether the raw data view is enabled. */
+    suspend fun setRawDataViewEnabled(enabled: Boolean)
 }
