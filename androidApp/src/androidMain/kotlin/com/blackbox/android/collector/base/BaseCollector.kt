@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Abstract base class for Android data collectors.
@@ -45,6 +47,7 @@ abstract class BaseCollector(
     private var collectorJob: Job? = null
     private var collectorScope: CoroutineScope? = null
     private val _isRunning = MutableStateFlow(false)
+    private val startStopMutex = Mutex()
 
     override val isRunning: Boolean
         get() = _isRunning.value
@@ -66,58 +69,64 @@ abstract class BaseCollector(
     private var recordCallback: (suspend (List<CollectedRecord>) -> Unit)? = null
 
     override suspend fun start() {
-        if (_isRunning.value) {
-            logger.d(tag, "Already running, ignoring start()")
-            return
-        }
+        startStopMutex.withLock {
+            if (_isRunning.value) {
+                logger.d(tag, "Already running, ignoring start()")
+                return
+            }
 
-        logger.i(tag, "Starting collector")
-        cycleCount = 0L
+            logger.i(tag, "Starting collector")
+            cycleCount = 0L
 
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        collectorScope = scope
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            collectorScope = scope
 
-        onCollectorStarted()
-        _isRunning.value = true
+            onCollectorStarted()
+            _isRunning.value = true
 
-        if (baseIntervalMs > 0) {
-            collectorJob = scope.launch {
-                while (isActive) {
-                    try {
-                        val records = collectData()
-                        if (records.isNotEmpty()) {
-                            onRecordsCollected(records)
+            // scope.launch returns immediately — safe to call while holding the lock.
+            // The actual collection work runs inside the launched coroutine, not here.
+            if (baseIntervalMs > 0) {
+                collectorJob = scope.launch {
+                    while (isActive) {
+                        try {
+                            val records = collectData()
+                            if (records.isNotEmpty()) {
+                                onRecordsCollected(records)
+                            }
+                            cycleCount++
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            logger.e(tag, "Error in collection cycle $cycleCount", e)
                         }
-                        cycleCount++
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        logger.e(tag, "Error in collection cycle $cycleCount", e)
-                    }
 
-                    val adjustedInterval = computeAdjustedInterval()
-                    delay(adjustedInterval)
+                        val adjustedInterval = computeAdjustedInterval()
+                        delay(adjustedInterval)
+                    }
                 }
             }
-        }
 
-        logger.i(tag, "Collector started (interval=${baseIntervalMs}ms, event-driven=${baseIntervalMs == 0L})")
+            logger.i(tag, "Collector started (interval=${baseIntervalMs}ms, event-driven=${baseIntervalMs == 0L})")
+        }
     }
 
     override suspend fun stop() {
-        if (!_isRunning.value) {
-            logger.d(tag, "Already stopped, ignoring stop()")
-            return
+        startStopMutex.withLock {
+            if (!_isRunning.value) {
+                logger.d(tag, "Already stopped, ignoring stop()")
+                return
+            }
+
+            logger.i(tag, "Stopping collector (completed $cycleCount cycles)")
+            collectorJob?.cancel()
+            collectorJob = null
+            collectorScope?.cancel()
+            collectorScope = null
+
+            onCollectorStopped()
+            _isRunning.value = false
         }
-
-        logger.i(tag, "Stopping collector (completed $cycleCount cycles)")
-        collectorJob?.cancel()
-        collectorJob = null
-        collectorScope?.cancel()
-        collectorScope = null
-
-        onCollectorStopped()
-        _isRunning.value = false
     }
 
     /**
