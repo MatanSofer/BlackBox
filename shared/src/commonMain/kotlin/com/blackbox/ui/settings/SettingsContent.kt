@@ -1,7 +1,6 @@
 package com.blackbox.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,17 +8,23 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -30,8 +35,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import blackbox.shared.generated.resources.Res
 import blackbox.shared.generated.resources.settings_collectors_title
 import blackbox.shared.generated.resources.settings_interval
@@ -137,11 +144,57 @@ fun SettingsContent(
                                 onAction(SettingsContract.Action.RetentionPeriodChanged(period))
                             },
                         )
+                    }
+
+                    item {
+                        Spacer(modifier = Modifier.height(Dimens.SpacingMd))
+                        Text(
+                            text = "DEBUG",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = BlackBoxColors.NeonMagenta,
+                        )
+                        Spacer(modifier = Modifier.height(Dimens.SpacingSm))
+                        DbDumpCard(
+                            isLoading = state.isDumpLoading,
+                            onDump = { onAction(SettingsContract.Action.DumpDbRecords) },
+                        )
                         Spacer(modifier = Modifier.height(Dimens.SpacingMd))
                     }
                 }
             }
         }
+    }
+
+    // DB dump dialog — AlertDialog creates a floating overlay window, no Box needed
+    if (state.dbDumpText != null) {
+        AlertDialog(
+            onDismissRequest = { onAction(SettingsContract.Action.DismissDbDump) },
+            title = {
+                Text(
+                    text = "DB RECORDS",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = BlackBoxColors.NeonGreen,
+                )
+            },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        text = state.dbDumpText,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            lineHeight = 18.sp,
+                        ),
+                        color = BlackBoxColors.TextPrimary,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { onAction(SettingsContract.Action.DismissDbDump) }) {
+                    Text("CLOSE", color = BlackBoxColors.NeonGreen)
+                }
+            },
+            containerColor = BlackBoxColors.Surface,
+        )
     }
 }
 
@@ -367,6 +420,61 @@ private fun RetentionPeriodCard(
                         },
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Card for the Debug section — triggers a full DB dump formatted as a text block.
+ *
+ * Shows a spinner while the query is running and a "DUMP" button otherwise.
+ * The NeonMagenta border marks this as a developer-only control.
+ *
+ * @param isLoading Whether the dump query is currently running.
+ * @param onDump Callback when the user taps the button.
+ * @param modifier Optional [Modifier].
+ */
+@Composable
+private fun DbDumpCard(
+    isLoading: Boolean,
+    onDump: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .neonBorder(color = BlackBoxColors.NeonMagenta, cornerRadius = 4.dp)
+            .padding(Dimens.PaddingCard),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "VIEW DB RECORDS",
+                style = MaterialTheme.typography.bodyLarge,
+                color = BlackBoxColors.TextPrimary,
+            )
+            Text(
+                text = "Last ${com.blackbox.domain.usecase.settings.DumpDbRecordsUseCase.MAX_PER_COLLECTOR} records per collector — also logged to logcat [BB_DB_DUMP]",
+                style = MaterialTheme.typography.bodySmall,
+                color = BlackBoxColors.TextMuted,
+            )
+        }
+
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                color = BlackBoxColors.NeonMagenta,
+                strokeWidth = 2.dp,
+            )
+        } else {
+            TextButton(onClick = onDump) {
+                Text(
+                    text = "DUMP",
+                    color = BlackBoxColors.NeonMagenta,
+                    style = MaterialTheme.typography.labelLarge,
+                )
             }
         }
     }

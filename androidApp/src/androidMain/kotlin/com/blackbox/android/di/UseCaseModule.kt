@@ -14,6 +14,7 @@ import com.blackbox.domain.usecase.query.ProcessQueryUseCase
 import com.blackbox.domain.usecase.record.GetRecordsUseCase
 import com.blackbox.domain.usecase.record.SaveLocationRecordUseCase
 import com.blackbox.domain.usecase.record.SaveRecordUseCase
+import com.blackbox.domain.usecase.settings.DumpDbRecordsUseCase
 import com.blackbox.domain.usecase.settings.UpdateCollectorSettingUseCase
 import com.blackbox.domain.usecase.timeline.GenerateDailySummaryUseCase
 import com.blackbox.domain.usecase.timeline.GetCollectorGroupsUseCase
@@ -55,4 +56,5 @@ val useCaseModule = module {
 
     // Settings use cases
     single { UpdateCollectorSettingUseCase(get(), get()) }
+    single { DumpDbRecordsUseCase(get(), get()) }
 }

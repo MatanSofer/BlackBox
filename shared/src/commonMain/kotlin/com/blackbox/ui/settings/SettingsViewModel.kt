@@ -6,6 +6,7 @@ import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.settings.CollectorSetting
 import com.blackbox.domain.model.settings.RetentionPeriod
 import com.blackbox.domain.repository.SettingsRepository
+import com.blackbox.domain.usecase.settings.DumpDbRecordsUseCase
 import com.blackbox.domain.usecase.settings.UpdateCollectorSettingUseCase
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,7 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val updateCollectorSettingUseCase: UpdateCollectorSettingUseCase,
+    private val dumpDbRecordsUseCase: DumpDbRecordsUseCase,
     private val checkPermission: (CollectorType) -> Boolean = { true },
 ) : ViewModel() {
 
@@ -69,6 +71,8 @@ class SettingsViewModel(
             is SettingsContract.Action.RefreshPermissions -> refreshPermissions()
             is SettingsContract.Action.RawDataViewToggled -> handleRawDataViewToggled(action.enabled)
             is SettingsContract.Action.RetentionPeriodChanged -> handleRetentionPeriodChanged(action.period)
+            is SettingsContract.Action.DumpDbRecords -> handleDumpDbRecords()
+            is SettingsContract.Action.DismissDbDump -> _state.update { it.copy(dbDumpText = null) }
         }
     }
 
@@ -143,6 +147,24 @@ class SettingsViewModel(
                     _events.emit(
                         SettingsContract.Event.ShowSnackbar(
                             error.message ?: "Failed to update setting",
+                        ),
+                    )
+                }
+        }
+    }
+
+    private fun handleDumpDbRecords() {
+        viewModelScope.launch {
+            _state.update { it.copy(isDumpLoading = true) }
+            dumpDbRecordsUseCase()
+                .onSuccess { text ->
+                    _state.update { it.copy(isDumpLoading = false, dbDumpText = text) }
+                }
+                .onFailure { error ->
+                    _state.update { it.copy(isDumpLoading = false) }
+                    _events.emit(
+                        SettingsContract.Event.ShowSnackbar(
+                            error.message ?: "DB dump failed",
                         ),
                     )
                 }

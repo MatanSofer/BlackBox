@@ -21,6 +21,8 @@ object SettingsContract {
      * @property isServiceRunning Whether the foreground service is running.
      * @property isRawDataViewEnabled Whether the Timeline shows all 10 collectors' raw records.
      * @property retentionPeriod How long raw records are kept before automatic deletion.
+     * @property isDumpLoading Whether the DB dump query is running.
+     * @property dbDumpText Non-null when the DB dump dialog should be shown; contains formatted text.
      * @property error Error message to display, if any.
      */
     data class State(
@@ -30,6 +32,8 @@ object SettingsContract {
         val isServiceRunning: Boolean = false,
         val isRawDataViewEnabled: Boolean = false,
         val retentionPeriod: RetentionPeriod = RetentionPeriod.ONE_YEAR,
+        val isDumpLoading: Boolean = false,
+        val dbDumpText: String? = null,
         val error: String? = null,
     )
 
@@ -47,6 +51,10 @@ object SettingsContract {
         data class RawDataViewToggled(val enabled: Boolean) : Action
         /** User selected a new data retention period. */
         data class RetentionPeriodChanged(val period: RetentionPeriod) : Action
+        /** User tapped "VIEW DB RECORDS" in the debug section. */
+        data object DumpDbRecords : Action
+        /** User dismissed the DB dump dialog. */
+        data object DismissDbDump : Action
     }
 
     /**

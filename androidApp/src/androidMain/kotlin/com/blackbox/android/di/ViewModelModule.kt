@@ -33,6 +33,7 @@ val viewModelModule = module {
         SettingsViewModel(
             settingsRepository = get(),
             updateCollectorSettingUseCase = get(),
+            dumpDbRecordsUseCase = get(),
             checkPermission = { type ->
                 when (type) {
                     CollectorType.LOCATION ->
