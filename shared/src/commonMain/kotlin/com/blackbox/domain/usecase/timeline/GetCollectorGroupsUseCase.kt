@@ -12,6 +12,11 @@ import com.blackbox.domain.repository.PlaceRepository
 import com.blackbox.domain.repository.RecordRepository
 import com.blackbox.domain.repository.TimelineRepository
 import com.blackbox.domain.util.BlackBoxLogger
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 
 /**
  * Builds a grouped timeline where each data collector produces one card.
@@ -142,6 +147,37 @@ class GetCollectorGroupsUseCase(
         val sorted = groups.sortedByDescending { it.lastRecordTime ?: 0L }
         logger.d(TAG, "Built ${sorted.size} groups")
         sorted
+    }
+
+    /**
+     * Observes collector groups reactively for the given time range.
+     *
+     * Combines three live data sources — records, locations, and the showAll
+     * setting — into a single flow. Whenever any of them changes (e.g. a new
+     * record is saved by the background service, or the user toggles the
+     * "show all collectors" switch in Settings), the flow re-emits by calling
+     * [invoke] with the latest inputs, so the Timeline screen updates
+     * automatically without polling or app restarts.
+     *
+     * @param startTime Start of the range in epoch ms.
+     * @param endTime End of the range in epoch ms.
+     * @param showAllFlow Live setting for whether all 10 collectors are shown.
+     * @return Flow of Results that re-emits on every relevant DB change.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observe(
+        startTime: Long,
+        endTime: Long,
+        showAllFlow: Flow<Boolean>,
+    ): Flow<Result<List<CollectorGroup>>> {
+        return combine(
+            recordRepository.observeRecordsInRange(startTime, endTime),
+            locationRepository.observeLocations(startTime, endTime),
+            showAllFlow,
+        ) { _, _, showAll -> showAll }
+            .flatMapLatest { showAll ->
+                flow { emit(invoke(startTime, endTime, showAll)) }
+            }
     }
 
     /**

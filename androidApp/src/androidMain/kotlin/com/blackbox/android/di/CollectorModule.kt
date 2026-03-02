@@ -26,15 +26,15 @@ val collectorModule = module {
 
     // Collectors
     single { LocationCollector(androidContext(), get(), get()) }
-    single { ActivityCollector(androidContext(), get(), get()) }
-    single { WifiCollector(androidContext(), get(), get()) }
-    single { AppUsageCollector(androidContext(), get(), get()) }
-    single { ScreenStateCollector(androidContext(), get(), get()) }
-    single { AudioLevelCollector(androidContext(), get(), get()) }
-    single { BatteryCollector(androidContext(), get(), get()) }
-    single { ConnectivityCollector(androidContext(), get(), get()) }
-    single { BarometerCollector(androidContext(), get(), get()) }
-    single { LightCollector(androidContext(), get(), get()) }
+    single { ActivityCollector(androidContext(), get()) }
+    single { WifiCollector(androidContext(), get()) }
+    single { AppUsageCollector(androidContext(), get()) }
+    single { ScreenStateCollector(androidContext(), get()) }
+    single { AudioLevelCollector(androidContext(), get()) }
+    single { BatteryCollector(androidContext(), get()) }
+    single { ConnectivityCollector(androidContext(), get()) }
+    single { BarometerCollector(androidContext(), get()) }
+    single { LightCollector(androidContext(), get()) }
 
     // Orchestrator with all collectors registered
     single {

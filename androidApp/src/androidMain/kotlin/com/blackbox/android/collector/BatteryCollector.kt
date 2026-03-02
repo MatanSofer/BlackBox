@@ -14,7 +14,6 @@ import com.blackbox.domain.model.record.CollectedRecord
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.PlugType
 import com.blackbox.domain.model.record.RecordData
-import com.blackbox.domain.usecase.record.SaveRecordUseCase
 import com.blackbox.domain.util.BlackBoxLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,12 +30,10 @@ import java.util.UUID
  * temperature, voltage, and power source type.
  *
  * @property context Android context for registering BroadcastReceiver.
- * @property saveRecordUseCase Use case for persisting records.
  * @property logger Logger for lifecycle and error events.
  */
 class BatteryCollector(
     private val context: Context,
-    private val saveRecordUseCase: SaveRecordUseCase,
     logger: BlackBoxLogger,
 ) : BaseCollector(baseIntervalMs = 0, logger) {
 
@@ -136,14 +133,8 @@ class BatteryCollector(
             createdAt = now,
         )
 
-        saveRecordUseCase(record)
-            .onSuccess {
-                logger.d(TAG, "Battery saved: $levelPercent% ($status, $plugType)")
-                emitRecords(listOf(record))
-            }
-            .onFailure { e ->
-                logger.e(TAG, "Failed to save battery record", e)
-            }
+        logger.d(TAG, "Battery collected: $levelPercent% ($status, $plugType)")
+        emitRecords(listOf(record))
     }
 
     private var lastStatusRaw: Int = -1

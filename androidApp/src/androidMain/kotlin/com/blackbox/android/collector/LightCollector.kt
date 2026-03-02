@@ -11,7 +11,6 @@ import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.LightClassification
 import com.blackbox.domain.model.record.LightData
 import com.blackbox.domain.model.record.RecordData
-import com.blackbox.domain.usecase.record.SaveRecordUseCase
 import com.blackbox.domain.util.BlackBoxLogger
 import java.util.UUID
 
@@ -23,12 +22,10 @@ import java.util.UUID
  * indoors, outdoors, or in darkness (sleeping).
  *
  * @property context Android context for accessing SensorManager.
- * @property saveRecordUseCase Use case for persisting records.
  * @property logger Logger for lifecycle and error events.
  */
 class LightCollector(
     private val context: Context,
-    private val saveRecordUseCase: SaveRecordUseCase,
     logger: BlackBoxLogger,
 ) : BaseCollector(baseIntervalMs = DEFAULT_INTERVAL_MS, logger) {
 
@@ -96,14 +93,7 @@ class LightCollector(
             createdAt = now,
         )
 
-        saveRecordUseCase(record)
-            .onSuccess {
-                logger.d(TAG, "Light saved: ${lux}lux ($classification)")
-            }
-            .onFailure { e ->
-                logger.e(TAG, "Failed to save light record", e)
-            }
-
+        logger.d(TAG, "Light collected: ${lux}lux ($classification)")
         return listOf(record)
     }
 

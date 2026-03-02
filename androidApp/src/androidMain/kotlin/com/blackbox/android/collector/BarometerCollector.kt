@@ -10,7 +10,6 @@ import com.blackbox.domain.model.record.BarometerData
 import com.blackbox.domain.model.record.CollectedRecord
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.RecordData
-import com.blackbox.domain.usecase.record.SaveRecordUseCase
 import com.blackbox.domain.util.BlackBoxLogger
 import java.util.UUID
 import kotlin.math.roundToInt
@@ -22,12 +21,10 @@ import kotlin.math.roundToInt
  * by default as not all devices have a barometer sensor.
  *
  * @property context Android context for accessing SensorManager.
- * @property saveRecordUseCase Use case for persisting records.
  * @property logger Logger for lifecycle and error events.
  */
 class BarometerCollector(
     private val context: Context,
-    private val saveRecordUseCase: SaveRecordUseCase,
     logger: BlackBoxLogger,
 ) : BaseCollector(baseIntervalMs = DEFAULT_INTERVAL_MS, logger) {
 
@@ -112,14 +109,7 @@ class BarometerCollector(
             createdAt = now,
         )
 
-        saveRecordUseCase(record)
-            .onSuccess {
-                logger.d(TAG, "Barometer saved: ${pressure}hPa, floor=$floorChange")
-            }
-            .onFailure { e ->
-                logger.e(TAG, "Failed to save barometer record", e)
-            }
-
+        logger.d(TAG, "Barometer collected: ${pressure}hPa, floor=$floorChange")
         return listOf(record)
     }
 

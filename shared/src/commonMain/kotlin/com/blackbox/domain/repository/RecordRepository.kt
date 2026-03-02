@@ -2,6 +2,7 @@ package com.blackbox.domain.repository
 
 import com.blackbox.domain.model.record.CollectedRecord
 import com.blackbox.domain.model.record.CollectorType
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Repository for managing collected data records.
@@ -19,6 +20,14 @@ interface RecordRepository {
 
     /** Retrieves all records within a time range, ordered by timestamp. */
     suspend fun getRecordsInRange(startTime: Long, endTime: Long): List<CollectedRecord>
+
+    /**
+     * Observes all records within a time range as a reactive flow.
+     *
+     * Re-emits the full list whenever any record is inserted or deleted
+     * within the range, allowing the UI to update without polling.
+     */
+    fun observeRecordsInRange(startTime: Long, endTime: Long): Flow<List<CollectedRecord>>
 
     /** Retrieves records of a specific type within a time range. */
     suspend fun getRecordsByTypeInRange(

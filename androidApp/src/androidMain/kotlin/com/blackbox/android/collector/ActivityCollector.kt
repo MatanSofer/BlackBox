@@ -18,7 +18,6 @@ import com.blackbox.domain.model.record.ActivityType
 import com.blackbox.domain.model.record.CollectedRecord
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.RecordData
-import com.blackbox.domain.usecase.record.SaveRecordUseCase
 import com.blackbox.domain.util.BlackBoxLogger
 import com.google.android.gms.location.ActivityRecognition
 import com.google.android.gms.location.ActivityRecognitionClient
@@ -45,12 +44,10 @@ import kotlin.math.sqrt
  * them at the OS level. Step counts are sampled from the hardware pedometer.
  *
  * @property context Android context for accessing activity recognition and sensors.
- * @property saveRecordUseCase Use case for persisting activity records.
  * @property logger Logger for lifecycle and error events.
  */
 class ActivityCollector(
     private val context: Context,
-    private val saveRecordUseCase: SaveRecordUseCase,
     logger: BlackBoxLogger,
 ) : BaseCollector(baseIntervalMs = 0, logger) {
 
@@ -74,10 +71,27 @@ class ActivityCollector(
     private var currentActivity: ActivityType = ActivityType.UNKNOWN
     private var currentConfidence: Int = 0
 
+    /**
+     * Wall-clock time when this collector session started.
+     * Any transition event whose converted timestamp is before this value is a
+     * historical delivery from Android's buffer (e.g., events that occurred
+     * before the app was reinstalled) and must be discarded.
+     */
+    private var sessionStartMs: Long = 0L
+
+    /**
+     * Set of `elapsedRealtimeNanos` values already processed this session.
+     * The GMS Activity Recognition API can deliver the same event multiple times
+     * in one batch; this set prevents saving duplicate records.
+     */
+    private val processedEventNanos = mutableSetOf<Long>()
+
     @SuppressLint("MissingPermission")
     override fun onCollectorStarted() {
         logger.i(TAG, "Starting activity recognition")
         sessionId = UUID.randomUUID().toString()
+        sessionStartMs = System.currentTimeMillis()
+        processedEventNanos.clear()
         lastStepCount = -1L
         sessionStartStepCount = -1L
         currentActivity = ActivityType.UNKNOWN
@@ -254,6 +268,21 @@ class ActivityCollector(
         val elapsedNow = SystemClock.elapsedRealtimeNanos()
         val timestampMs = now - ((elapsedNow - elapsedRealtimeNanos) / 1_000_000)
 
+        // Discard events older than this session's start time — these are historical
+        // transitions buffered by Android and delivered on re-registration (e.g. after
+        // the app was reinstalled). They do not belong to the current session.
+        if (timestampMs < sessionStartMs) {
+            logger.d(TAG, "Discarding historical activity event: $activityType at $timestampMs (session started at $sessionStartMs)")
+            return
+        }
+
+        // Deduplicate: the GMS API sometimes delivers the same event multiple times
+        // in one batch (identical elapsedRealtimeNanos). Only process each unique event once.
+        if (!processedEventNanos.add(elapsedRealtimeNanos)) {
+            logger.d(TAG, "Discarding duplicate activity event: $activityType at $timestampMs")
+            return
+        }
+
         currentActivity = activityType
         currentConfidence = confidence
 
@@ -282,14 +311,8 @@ class ActivityCollector(
             createdAt = now,
         )
 
-        saveRecordUseCase(record)
-            .onSuccess {
-                logger.d(TAG, "Activity saved: $activityType (confidence=$confidence, steps=$stepDelta)")
-                emitRecords(listOf(record))
-            }
-            .onFailure { e ->
-                logger.e(TAG, "Failed to save activity record", e)
-            }
+        logger.d(TAG, "Activity collected: $activityType (confidence=$confidence, steps=$stepDelta)")
+        emitRecords(listOf(record))
     }
 
     /**

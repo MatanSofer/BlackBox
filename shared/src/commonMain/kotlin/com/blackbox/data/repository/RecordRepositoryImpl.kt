@@ -1,5 +1,7 @@
 package com.blackbox.data.repository
 
+import app.cash.sqldelight.coroutines.asFlow
+import app.cash.sqldelight.coroutines.mapToList
 import com.blackbox.data.database.BlackBoxDatabase
 import com.blackbox.data.mapper.RecordMapper
 import com.blackbox.domain.model.record.CollectedRecord
@@ -8,6 +10,8 @@ import com.blackbox.domain.repository.RecordRepository
 import com.blackbox.domain.util.BlackBoxLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 /**
@@ -78,6 +82,14 @@ class RecordRepositoryImpl(
                 .executeAsList()
                 .map(RecordMapper::toDomain)
         }
+    }
+
+    override fun observeRecordsInRange(startTime: Long, endTime: Long): Flow<List<CollectedRecord>> {
+        return database.blackBoxDatabaseQueries
+            .getAllRecordsInRange(startTime, endTime)
+            .asFlow()
+            .mapToList(Dispatchers.IO)
+            .map { list -> list.map(RecordMapper::toDomain) }
     }
 
     override suspend fun getRecordsByTypeInRange(

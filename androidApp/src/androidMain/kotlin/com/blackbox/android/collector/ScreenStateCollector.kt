@@ -14,7 +14,6 @@ import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.RecordData
 import com.blackbox.domain.model.record.ScreenState
 import com.blackbox.domain.model.record.ScreenStateData
-import com.blackbox.domain.usecase.record.SaveRecordUseCase
 import com.blackbox.domain.util.BlackBoxLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,12 +30,10 @@ import java.util.UUID
  * Zero battery impact since it only reacts to system-delivered events.
  *
  * @property context Android context for registering BroadcastReceiver.
- * @property saveRecordUseCase Use case for persisting records.
  * @property logger Logger for lifecycle and error events.
  */
 class ScreenStateCollector(
     private val context: Context,
-    private val saveRecordUseCase: SaveRecordUseCase,
     logger: BlackBoxLogger,
 ) : BaseCollector(baseIntervalMs = 0, logger) {
 
@@ -144,14 +141,8 @@ class ScreenStateCollector(
             createdAt = now,
         )
 
-        saveRecordUseCase(record)
-            .onSuccess {
-                logger.d(TAG, "Screen state saved: $screenState")
-                emitRecords(listOf(record))
-            }
-            .onFailure { e ->
-                logger.e(TAG, "Failed to save screen state record", e)
-            }
+        logger.d(TAG, "Screen state collected: $screenState")
+        emitRecords(listOf(record))
     }
 
     companion object {

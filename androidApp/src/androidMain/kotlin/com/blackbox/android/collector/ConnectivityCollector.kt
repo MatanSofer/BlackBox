@@ -15,7 +15,6 @@ import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.ConnectivityData
 import com.blackbox.domain.model.record.NetworkType
 import com.blackbox.domain.model.record.RecordData
-import com.blackbox.domain.usecase.record.SaveRecordUseCase
 import com.blackbox.domain.util.BlackBoxLogger
 import java.util.UUID
 
@@ -27,12 +26,10 @@ import java.util.UUID
  * and detecting environment changes.
  *
  * @property context Android context for accessing system services.
- * @property saveRecordUseCase Use case for persisting records.
  * @property logger Logger for lifecycle and error events.
  */
 class ConnectivityCollector(
     private val context: Context,
-    private val saveRecordUseCase: SaveRecordUseCase,
     logger: BlackBoxLogger,
 ) : BaseCollector(baseIntervalMs = DEFAULT_INTERVAL_MS, logger) {
 
@@ -101,14 +98,7 @@ class ConnectivityCollector(
             createdAt = now,
         )
 
-        saveRecordUseCase(record)
-            .onSuccess {
-                logger.d(TAG, "Connectivity saved: $networkType, bt=$btEnabled, airplane=$airplaneMode")
-            }
-            .onFailure { e ->
-                logger.e(TAG, "Failed to save connectivity record", e)
-            }
-
+        logger.d(TAG, "Connectivity collected: $networkType, bt=$btEnabled, airplane=$airplaneMode")
         return listOf(record)
     }
 

@@ -9,7 +9,6 @@ import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.NearbyNetwork
 import com.blackbox.domain.model.record.RecordData
 import com.blackbox.domain.model.record.WifiData
-import com.blackbox.domain.usecase.record.SaveRecordUseCase
 import com.blackbox.domain.util.BlackBoxLogger
 import java.util.UUID
 
@@ -25,12 +24,10 @@ import java.util.UUID
  * - Nearby networks (up to [MAX_NEARBY_NETWORKS]) for fingerprinting
  *
  * @property context Android context for accessing WifiManager.
- * @property saveRecordUseCase Use case for persisting records.
  * @property logger Logger for lifecycle and error events.
  */
 class WifiCollector(
     private val context: Context,
-    private val saveRecordUseCase: SaveRecordUseCase,
     logger: BlackBoxLogger,
 ) : BaseCollector(baseIntervalMs = DEFAULT_INTERVAL_MS, logger) {
 
@@ -104,14 +101,7 @@ class WifiCollector(
             createdAt = now,
         )
 
-        saveRecordUseCase(record)
-            .onSuccess {
-                logger.d(TAG, "WiFi saved: ssid=$connectedSsid, nearby=${nearbyNetworks.size}/${ scanResults.size}")
-            }
-            .onFailure { e ->
-                logger.e(TAG, "Failed to save WiFi record", e)
-            }
-
+        logger.d(TAG, "WiFi collected: ssid=$connectedSsid, nearby=${nearbyNetworks.size}/${scanResults.size}")
         return listOf(record)
     }
 

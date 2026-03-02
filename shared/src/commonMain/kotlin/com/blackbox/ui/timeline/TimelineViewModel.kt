@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.repository.SettingsRepository
 import com.blackbox.domain.usecase.timeline.GetCollectorGroupsUseCase
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -23,16 +25,13 @@ import java.util.Locale
 /**
  * ViewModel for the Timeline screen.
  *
- * Manages day-based navigation and loads collector groups for the selected
- * date via the domain layer.
+ * Manages day-based navigation and exposes a live-updating stream of
+ * collector groups for the selected date.
  *
- * **Live updates:** A coroutine runs continuously while the ViewModel is alive,
- * refreshing the timeline every [LIVE_REFRESH_INTERVAL_MS]. This ensures new
- * collector records appear without the user needing to navigate away and back.
- *
- * **Immediate toggle response:** [SettingsRepository.observeRawDataViewEnabled] is
- * collected as a Flow. Any change made in the Settings screen propagates here
- * immediately — no app restart required.
+ * **Live updates:** Combines reactive flows from [RecordRepository],
+ * [LocationRepository], and [SettingsRepository] so the UI re-renders
+ * the moment the background service writes a new record or the user
+ * changes a setting — no polling, no app restart required.
  *
  * @property getCollectorGroupsUseCase Use case for building grouped timeline data.
  * @property settingsRepository Repository for reading display preferences.
@@ -56,28 +55,65 @@ class TimelineViewModel(
 
     init {
         val today = dateFormat.format(Date())
-        _state.update { it.copy(selectedDate = today) }
+        _state.update { it.copy(selectedDate = today, isLoading = true) }
+        observeTimeline()
+    }
 
-        // Observe the raw data toggle. When the user changes it in Settings and then
-        // navigates back to Timeline, the flow emits immediately and we reload.
+    /**
+     * Starts two coroutines that keep the Timeline screen live:
+     *
+     * 1. **Data flow** — combines [RecordRepository.observeRecordsInRange],
+     *    [LocationRepository.observeLocations], and [SettingsRepository.observeRawDataViewEnabled]
+     *    into a single stream. The moment the background service writes a new record,
+     *    or the user flips the "show all collectors" toggle in Settings, the UI
+     *    re-renders automatically — no polling, no app restart required.
+     *    Restarts automatically when the selected date changes.
+     *
+     * 2. **Settings sync** — keeps [TimelineContract.State.showAllCollectors] up to date
+     *    so the UI can reflect the toggle state independently of the data load.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun observeTimeline() {
+        // ── 1. Reactive data flow ─────────────────────────────────────────────
+        viewModelScope.launch {
+            _state
+                .map { it.selectedDate }
+                .distinctUntilChanged()
+                .flatMapLatest { date ->
+                    val (start, end) = dayBoundsMs(date)
+                    getCollectorGroupsUseCase.observe(
+                        startTime = start,
+                        endTime = end,
+                        showAllFlow = settingsRepository.observeRawDataViewEnabled(),
+                    )
+                }
+                .collect { result ->
+                    result.onSuccess { freshGroups ->
+                        // Preserve expanded/collapsed state of each card across updates.
+                        val expandedTypes = _state.value.groups
+                            .filter { it.isExpanded }
+                            .map { it.collectorType }
+                            .toSet()
+                        val merged = freshGroups.map { group ->
+                            group.copy(isExpanded = group.collectorType in expandedTypes)
+                        }
+                        _state.update { it.copy(isLoading = false, groups = merged, error = null) }
+                    }
+                    result.onFailure { error ->
+                        _state.update {
+                            it.copy(isLoading = false, error = error.message ?: "Failed to load timeline")
+                        }
+                    }
+                }
+        }
+
+        // ── 2. Keep showAllCollectors state field in sync for the UI ──────────
         viewModelScope.launch {
             settingsRepository.observeRawDataViewEnabled()
                 .distinctUntilChanged()
                 .collect { showAll ->
                     _state.update { it.copy(showAllCollectors = showAll) }
-                    loadTimeline(_state.value.selectedDate, showAll)
                 }
-        }
-
-        // Periodic live refresh — emits new collector records as they arrive from the
-        // background service without any user interaction.
-        viewModelScope.launch {
-            while (true) {
-                delay(LIVE_REFRESH_INTERVAL_MS)
-                if (!_state.value.isLoading) {
-                    loadTimeline(_state.value.selectedDate, _state.value.showAllCollectors)
-                }
-            }
         }
     }
 
@@ -97,20 +133,19 @@ class TimelineViewModel(
     }
 
     private fun handleDateSelected(date: String) {
-        _state.update { it.copy(selectedDate = date) }
-        loadTimeline(date, _state.value.showAllCollectors)
+        // Updating selectedDate causes the flatMapLatest in observeTimeline() to
+        // cancel the current observation and restart it for the new date.
+        _state.update { it.copy(selectedDate = date, isLoading = true) }
     }
 
     private fun handlePreviousDay() {
         val newDate = offsetDate(_state.value.selectedDate, -1)
-        _state.update { it.copy(selectedDate = newDate) }
-        loadTimeline(newDate, _state.value.showAllCollectors)
+        _state.update { it.copy(selectedDate = newDate, isLoading = true) }
     }
 
     private fun handleNextDay() {
         val newDate = offsetDate(_state.value.selectedDate, 1)
-        _state.update { it.copy(selectedDate = newDate) }
-        loadTimeline(newDate, _state.value.showAllCollectors)
+        _state.update { it.copy(selectedDate = newDate, isLoading = true) }
     }
 
     private fun handleGroupToggled(collectorType: CollectorType?) {
@@ -175,7 +210,6 @@ class TimelineViewModel(
     }
 
     companion object {
-        /** How often the timeline auto-refreshes while the screen is active. */
-        private const val LIVE_REFRESH_INTERVAL_MS = 30_000L
+        private const val TAG = "TimelineViewModel"
     }
 }

@@ -13,7 +13,6 @@ import com.blackbox.domain.model.record.CollectedRecord
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.NoiseClassification
 import com.blackbox.domain.model.record.RecordData
-import com.blackbox.domain.usecase.record.SaveRecordUseCase
 import com.blackbox.domain.util.BlackBoxLogger
 import java.util.UUID
 import kotlin.math.log10
@@ -28,12 +27,10 @@ import kotlin.math.sqrt
  * usage sensitivity.
  *
  * @property context Android context for checking permissions.
- * @property saveRecordUseCase Use case for persisting records.
  * @property logger Logger for lifecycle and error events.
  */
 class AudioLevelCollector(
     private val context: Context,
-    private val saveRecordUseCase: SaveRecordUseCase,
     logger: BlackBoxLogger,
 ) : BaseCollector(baseIntervalMs = DEFAULT_INTERVAL_MS, logger) {
 
@@ -77,14 +74,7 @@ class AudioLevelCollector(
             createdAt = now,
         )
 
-        saveRecordUseCase(record)
-            .onSuccess {
-                logger.d(TAG, "Audio level saved: ${dbLevel}dB ($classification)")
-            }
-            .onFailure { e ->
-                logger.e(TAG, "Failed to save audio level record", e)
-            }
-
+        logger.d(TAG, "Audio level collected: ${dbLevel}dB ($classification)")
         return listOf(record)
     }
 

@@ -13,7 +13,6 @@ import com.blackbox.domain.model.record.AppUsageData
 import com.blackbox.domain.model.record.CollectedRecord
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.RecordData
-import com.blackbox.domain.usecase.record.SaveRecordUseCase
 import com.blackbox.domain.util.BlackBoxLogger
 import java.util.UUID
 
@@ -32,12 +31,10 @@ import java.util.UUID
  * If the permission is absent the collector skips silently without crashing.
  *
  * @property context Android context for accessing system services.
- * @property saveRecordUseCase Use case for persisting collected records.
  * @property logger Logger for lifecycle and error events.
  */
 class AppUsageCollector(
     private val context: Context,
-    private val saveRecordUseCase: SaveRecordUseCase,
     logger: BlackBoxLogger,
 ) : BaseCollector(baseIntervalMs = POLL_INTERVAL_MS, logger) {
 
@@ -121,10 +118,7 @@ class AppUsageCollector(
                 createdAt = now,
             )
 
-            saveRecordUseCase(record)
-                .onSuccess { logger.d(TAG, "App switch recorded: $displayName") }
-                .onFailure { e -> logger.e(TAG, "Failed to save app usage record", e) }
-
+            logger.d(TAG, "App switch collected: $displayName")
             records.add(record)
             lastForegroundPackage = packageName
             lastForegroundStart = eventTime

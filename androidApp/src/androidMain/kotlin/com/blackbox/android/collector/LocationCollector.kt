@@ -94,7 +94,12 @@ class LocationCollector(
         locationCallback = callback
 
         client.requestLocationUpdates(request, callback, Looper.getMainLooper())
-        logger.i(TAG, "Location updates registered with sessionId=$sessionId")
+            .addOnSuccessListener {
+                logger.i(TAG, "Location updates registered with sessionId=$sessionId")
+            }
+            .addOnFailureListener { e ->
+                logger.e(TAG, "Failed to register location updates — GPS disabled or foreground service type missing: ${e.message}", e)
+            }
     }
 
     override fun onCollectorStopped() {
@@ -165,7 +170,6 @@ class LocationCollector(
         saveLocationRecordUseCase(record, locationEntry)
             .onSuccess {
                 logger.d(TAG, "Location saved: ($latitude, $longitude) accuracy=${accuracyMeters}m")
-                emitRecords(listOf(record))
             }
             .onFailure { e ->
                 logger.e(TAG, "Failed to save location record", e)
