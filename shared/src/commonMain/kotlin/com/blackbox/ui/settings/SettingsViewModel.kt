@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.settings.CollectorSetting
+import com.blackbox.domain.model.settings.RetentionPeriod
 import com.blackbox.domain.repository.SettingsRepository
 import com.blackbox.domain.usecase.settings.UpdateCollectorSettingUseCase
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -55,6 +56,7 @@ class SettingsViewModel(
         loadSettings()
         refreshPermissions()
         loadRawDataViewEnabled()
+        loadRetentionPeriod()
     }
 
     /**
@@ -66,6 +68,7 @@ class SettingsViewModel(
             is SettingsContract.Action.Refresh -> loadSettings()
             is SettingsContract.Action.RefreshPermissions -> refreshPermissions()
             is SettingsContract.Action.RawDataViewToggled -> handleRawDataViewToggled(action.enabled)
+            is SettingsContract.Action.RetentionPeriodChanged -> handleRetentionPeriodChanged(action.period)
         }
     }
 
@@ -140,6 +143,31 @@ class SettingsViewModel(
                     _events.emit(
                         SettingsContract.Event.ShowSnackbar(
                             error.message ?: "Failed to update setting",
+                        ),
+                    )
+                }
+        }
+    }
+
+    private fun loadRetentionPeriod() {
+        viewModelScope.launch {
+            runCatching { settingsRepository.getRetentionPeriod() }
+                .onSuccess { period ->
+                    _state.update { it.copy(retentionPeriod = period) }
+                }
+        }
+    }
+
+    private fun handleRetentionPeriodChanged(period: RetentionPeriod) {
+        viewModelScope.launch {
+            val previous = _state.value.retentionPeriod
+            _state.update { it.copy(retentionPeriod = period) }
+            runCatching { settingsRepository.setRetentionPeriod(period) }
+                .onFailure { error ->
+                    _state.update { it.copy(retentionPeriod = previous) }
+                    _events.emit(
+                        SettingsContract.Event.ShowSnackbar(
+                            error.message ?: "Failed to update retention period",
                         ),
                     )
                 }

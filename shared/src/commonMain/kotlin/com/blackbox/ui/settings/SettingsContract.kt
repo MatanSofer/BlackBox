@@ -2,6 +2,7 @@ package com.blackbox.ui.settings
 
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.settings.CollectorSetting
+import com.blackbox.domain.model.settings.RetentionPeriod
 
 /**
  * MVI contract for the Settings screen.
@@ -19,6 +20,7 @@ object SettingsContract {
      *   permission are always mapped to `true`.
      * @property isServiceRunning Whether the foreground service is running.
      * @property isRawDataViewEnabled Whether the Timeline shows all 10 collectors' raw records.
+     * @property retentionPeriod How long raw records are kept before automatic deletion.
      * @property error Error message to display, if any.
      */
     data class State(
@@ -27,6 +29,7 @@ object SettingsContract {
         val permissionsGranted: Map<CollectorType, Boolean> = emptyMap(),
         val isServiceRunning: Boolean = false,
         val isRawDataViewEnabled: Boolean = false,
+        val retentionPeriod: RetentionPeriod = RetentionPeriod.ONE_YEAR,
         val error: String? = null,
     )
 
@@ -42,6 +45,8 @@ object SettingsContract {
         data object RefreshPermissions : Action
         /** User toggled the raw data view in the Timeline. */
         data class RawDataViewToggled(val enabled: Boolean) : Action
+        /** User selected a new data retention period. */
+        data class RetentionPeriodChanged(val period: RetentionPeriod) : Action
     }
 
     /**

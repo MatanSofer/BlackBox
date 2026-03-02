@@ -2,6 +2,7 @@ package com.blackbox.domain.repository
 
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.settings.CollectorSetting
+import com.blackbox.domain.model.settings.RetentionPeriod
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -46,4 +47,10 @@ interface SettingsRepository {
 
     /** Sets whether the raw data view is enabled. */
     suspend fun setRawDataViewEnabled(enabled: Boolean)
+
+    /** Returns the current data retention period. Defaults to [RetentionPeriod.ONE_YEAR]. */
+    suspend fun getRetentionPeriod(): RetentionPeriod
+
+    /** Persists the user's chosen data retention period. */
+    suspend fun setRetentionPeriod(period: RetentionPeriod)
 }

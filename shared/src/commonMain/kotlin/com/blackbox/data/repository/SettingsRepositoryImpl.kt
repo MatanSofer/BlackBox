@@ -7,6 +7,7 @@ import com.blackbox.data.database.BlackBoxDatabase
 import com.blackbox.data.mapper.SettingsMapper
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.settings.CollectorSetting
+import com.blackbox.domain.model.settings.RetentionPeriod
 import com.blackbox.domain.repository.SettingsRepository
 import com.blackbox.domain.util.BlackBoxLogger
 import kotlinx.coroutines.Dispatchers
@@ -144,9 +145,33 @@ class SettingsRepositoryImpl(
         }
     }
 
+    override suspend fun getRetentionPeriod(): RetentionPeriod {
+        return withContext(Dispatchers.IO) {
+            val name = database.blackBoxDatabaseQueries
+                .getSettingForCollector(RETENTION_PERIOD_KEY)
+                .executeAsOneOrNull()
+                ?.custom_config_json
+            RetentionPeriod.entries.firstOrNull { it.name == name } ?: RetentionPeriod.ONE_YEAR
+        }
+    }
+
+    override suspend fun setRetentionPeriod(period: RetentionPeriod) {
+        withContext(Dispatchers.IO) {
+            logger.i(TAG, "Setting retention period=${period.name}")
+            database.blackBoxDatabaseQueries.insertSetting(
+                collector_type = RETENTION_PERIOD_KEY,
+                is_enabled = 1L,
+                collection_interval_ms = 0L,
+                custom_config_json = period.name,
+                updated_at = kotlinx.datetime.Clock.System.now().toEpochMilliseconds(),
+            )
+        }
+    }
+
     companion object {
         private const val TAG = "SettingsRepository"
         private const val ONBOARDING_KEY = "_ONBOARDING_COMPLETE"
         private const val RAW_DATA_VIEW_KEY = "_RAW_DATA_VIEW_ENABLED"
+        private const val RETENTION_PERIOD_KEY = "_RETENTION_PERIOD"
     }
 }

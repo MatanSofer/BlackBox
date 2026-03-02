@@ -1,6 +1,7 @@
 package com.blackbox.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,13 +11,25 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import blackbox.shared.generated.resources.Res
@@ -24,6 +37,7 @@ import blackbox.shared.generated.resources.settings_collectors_title
 import blackbox.shared.generated.resources.settings_interval
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.settings.CollectorSetting
+import com.blackbox.domain.model.settings.RetentionPeriod
 import com.blackbox.ui.common.ErrorView
 import com.blackbox.ui.common.LoadingIndicator
 import com.blackbox.ui.theme.BlackBoxColors
@@ -107,6 +121,23 @@ fun SettingsContent(
                                 onAction(SettingsContract.Action.RawDataViewToggled(enabled))
                             },
                         )
+                    }
+
+                    item {
+                        Spacer(modifier = Modifier.height(Dimens.SpacingMd))
+                        Text(
+                            text = "DATA RETENTION",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = BlackBoxColors.ElectricCyan,
+                        )
+                        Spacer(modifier = Modifier.height(Dimens.SpacingSm))
+                        RetentionPeriodCard(
+                            retentionPeriod = state.retentionPeriod,
+                            onPeriodSelected = { period ->
+                                onAction(SettingsContract.Action.RetentionPeriodChanged(period))
+                            },
+                        )
+                        Spacer(modifier = Modifier.height(Dimens.SpacingMd))
                     }
                 }
             }
@@ -250,6 +281,107 @@ private fun DataInspectionCard(
 }
 
 /**
+ * Card for the Data Retention section — lets the user choose how long raw records
+ * are kept before [CleanupWorker] deletes them.
+ *
+ * Uses an [ExposedDropdownMenuBox] styled to match the cyberpunk neon theme.
+ * The border colour is [BlackBoxColors.ElectricCyan] to distinguish this setting
+ * from the NeonGreen collector toggles.
+ *
+ * @param retentionPeriod Currently selected retention period.
+ * @param onPeriodSelected Callback when the user picks a new period.
+ * @param modifier Optional [Modifier].
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RetentionPeriodCard(
+    retentionPeriod: RetentionPeriod,
+    onPeriodSelected: (RetentionPeriod) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .neonBorder(color = BlackBoxColors.ElectricCyan, cornerRadius = 4.dp)
+            .padding(Dimens.PaddingCard),
+    ) {
+        Text(
+            text = "RAW RECORD LIFESPAN",
+            style = MaterialTheme.typography.bodyLarge,
+            color = BlackBoxColors.TextPrimary,
+        )
+        Text(
+            text = "Older records are deleted automatically. Summaries are kept forever.",
+            style = MaterialTheme.typography.bodySmall,
+            color = BlackBoxColors.TextMuted,
+        )
+        Spacer(modifier = Modifier.height(Dimens.SpacingSm))
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it },
+        ) {
+            TextField(
+                value = retentionPeriodLabel(retentionPeriod),
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = BlackBoxColors.ElectricCyan),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = BlackBoxColors.Surface,
+                    unfocusedContainerColor = BlackBoxColors.Surface,
+                    focusedIndicatorColor = BlackBoxColors.ElectricCyan,
+                    unfocusedIndicatorColor = BlackBoxColors.OutlineFaint,
+                    focusedTrailingIconColor = BlackBoxColors.ElectricCyan,
+                    unfocusedTrailingIconColor = BlackBoxColors.TextMuted,
+                    focusedTextColor = BlackBoxColors.ElectricCyan,
+                    unfocusedTextColor = BlackBoxColors.ElectricCyan,
+                    cursorColor = Color.Transparent,
+                ),
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                containerColor = BlackBoxColors.Surface,
+            ) {
+                RetentionPeriod.entries.forEach { period ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = retentionPeriodLabel(period),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (period == retentionPeriod) {
+                                    BlackBoxColors.ElectricCyan
+                                } else {
+                                    BlackBoxColors.TextPrimary
+                                },
+                            )
+                        },
+                        onClick = {
+                            onPeriodSelected(period)
+                            expanded = false
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Maps a [RetentionPeriod] to a human-readable label. */
+private fun retentionPeriodLabel(period: RetentionPeriod): String = when (period) {
+    RetentionPeriod.THREE_MONTHS -> "3 Months"
+    RetentionPeriod.SIX_MONTHS -> "6 Months"
+    RetentionPeriod.ONE_YEAR -> "1 Year"
+    RetentionPeriod.TWO_YEARS -> "2 Years"
+    RetentionPeriod.UNLIMITED -> "Unlimited"
+}
+
+/**
  * Formats a [CollectorType] enum into a human-readable name.
  */
 private fun formatCollectorName(type: CollectorType): String {
@@ -289,6 +421,7 @@ private fun SettingsContentWithDataPreview() {
                     CollectorSetting(CollectorType.LIGHT, isEnabled = false, collectionIntervalMs = 300_000),
                 ),
                 isRawDataViewEnabled = true,
+                retentionPeriod = RetentionPeriod.ONE_YEAR,
             ),
             onAction = {},
         )

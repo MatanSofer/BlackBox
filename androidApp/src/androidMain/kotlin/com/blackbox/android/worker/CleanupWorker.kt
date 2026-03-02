@@ -6,10 +6,10 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.blackbox.domain.model.settings.RetentionPeriod
 import com.blackbox.domain.repository.LocationRepository
 import com.blackbox.domain.repository.QueryRepository
 import com.blackbox.domain.repository.RecordRepository
+import com.blackbox.domain.repository.SettingsRepository
 import com.blackbox.domain.util.BlackBoxLogger
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -32,13 +32,14 @@ class CleanupWorker(
     private val recordRepository: RecordRepository by inject()
     private val locationRepository: LocationRepository by inject()
     private val queryRepository: QueryRepository by inject()
+    private val settingsRepository: SettingsRepository by inject()
     private val logger: BlackBoxLogger by inject()
 
     override suspend fun doWork(): Result {
         logger.d(TAG, "Starting data cleanup")
 
         return runCatching {
-            val retentionDays = RetentionPeriod.ONE_YEAR.days
+            val retentionDays = settingsRepository.getRetentionPeriod().days
             if (retentionDays < 0) {
                 logger.d(TAG, "Retention policy is UNLIMITED, skipping cleanup")
                 return Result.success()
