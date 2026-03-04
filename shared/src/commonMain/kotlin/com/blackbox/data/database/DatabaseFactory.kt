@@ -28,30 +28,30 @@ class DatabaseFactory(private val driverFactory: DatabaseDriverFactory) {
      */
     fun initializeDefaults(database: BlackBoxDatabase) {
         val existing = database.blackBoxDatabaseQueries.getAllSettings().executeAsList()
-        if (existing.isNotEmpty()) return
+        val existingTypes = existing.map { it.collector_type }.toSet()
 
         val now = Clock.System.now().toEpochMilliseconds()
         val queries = database.blackBoxDatabaseQueries
 
-        // LOCATION: 5 min, enabled
-        queries.insertSetting("LOCATION", 1, 300_000, null, now)
-        // ACTIVITY: event-driven, enabled
-        queries.insertSetting("ACTIVITY", 1, 0, null, now)
-        // WIFI: 15 min, enabled
-        queries.insertSetting("WIFI", 1, 900_000, null, now)
-        // APP_USAGE: 5 min, enabled
-        queries.insertSetting("APP_USAGE", 1, 300_000, null, now)
-        // SCREEN_STATE: event-driven, enabled
-        queries.insertSetting("SCREEN_STATE", 1, 0, null, now)
-        // AUDIO_LEVEL: 15 min, DISABLED by default
-        queries.insertSetting("AUDIO_LEVEL", 0, 900_000, null, now)
-        // BATTERY: 30 min, enabled
-        queries.insertSetting("BATTERY", 1, 1_800_000, null, now)
-        // CONNECTIVITY: event-driven, enabled
-        queries.insertSetting("CONNECTIVITY", 1, 0, null, now)
-        // BAROMETER: 10 min, DISABLED by default
-        queries.insertSetting("BAROMETER", 0, 600_000, null, now)
-        // LIGHT: 10 min, DISABLED by default
-        queries.insertSetting("LIGHT", 0, 600_000, null, now)
+        fun insertIfMissing(type: String, enabled: Long, intervalMs: Long) {
+            if (type !in existingTypes) {
+                queries.insertSetting(type, enabled, intervalMs, null, now)
+            }
+        }
+
+        insertIfMissing("LOCATION", 1, 300_000)
+        insertIfMissing("ACTIVITY", 1, 0)
+        insertIfMissing("WIFI", 1, 900_000)
+        insertIfMissing("APP_USAGE", 1, 300_000)
+        insertIfMissing("SCREEN_STATE", 1, 0)
+        insertIfMissing("AUDIO_LEVEL", 0, 900_000)
+        insertIfMissing("BATTERY", 1, 1_800_000)
+        insertIfMissing("CONNECTIVITY", 1, 0)
+        insertIfMissing("BAROMETER", 0, 600_000)
+        insertIfMissing("LIGHT", 0, 600_000)
+        // CALL_LOG: DISABLED by default (sensitive — requires READ_CALL_LOG permission)
+        insertIfMissing("CALL_LOG", 0, 300_000)
+        // MEDIA_PLAYBACK: enabled by default (no permission required)
+        insertIfMissing("MEDIA_PLAYBACK", 1, 30_000)
     }
 }

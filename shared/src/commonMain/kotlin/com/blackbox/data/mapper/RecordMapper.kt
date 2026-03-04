@@ -5,11 +5,13 @@ import com.blackbox.domain.model.record.AppUsageData
 import com.blackbox.domain.model.record.AudioLevelData
 import com.blackbox.domain.model.record.BarometerData
 import com.blackbox.domain.model.record.BatteryData
+import com.blackbox.domain.model.record.CallLogData
 import com.blackbox.domain.model.record.CollectedRecord
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.ConnectivityData
 import com.blackbox.domain.model.record.LightData
 import com.blackbox.domain.model.record.LocationData
+import com.blackbox.domain.model.record.MediaPlaybackData
 import com.blackbox.domain.model.record.RecordData
 import com.blackbox.domain.model.record.ScreenStateData
 import com.blackbox.domain.model.record.WifiData
@@ -58,6 +60,8 @@ object RecordMapper {
         is RecordData.Connectivity -> json.encodeToString(data.connectivityData)
         is RecordData.Barometer -> json.encodeToString(data.barometerData)
         is RecordData.Light -> json.encodeToString(data.lightData)
+        is RecordData.CallLog -> json.encodeToString(data.callLogData)
+        is RecordData.MediaPlayback -> json.encodeToString(data.mediaPlaybackData)
     }
 
     private fun deserializeData(type: CollectorType, dataJson: String): RecordData = when (type) {
@@ -71,5 +75,7 @@ object RecordMapper {
         CollectorType.CONNECTIVITY -> RecordData.Connectivity(json.decodeFromString<ConnectivityData>(dataJson))
         CollectorType.BAROMETER -> RecordData.Barometer(json.decodeFromString<BarometerData>(dataJson))
         CollectorType.LIGHT -> RecordData.Light(json.decodeFromString<LightData>(dataJson))
+        CollectorType.CALL_LOG -> RecordData.CallLog(json.decodeFromString<CallLogData>(dataJson))
+        CollectorType.MEDIA_PLAYBACK -> RecordData.MediaPlayback(json.decodeFromString<MediaPlaybackData>(dataJson))
     }
 }

@@ -46,6 +46,8 @@ val viewModelModule = module {
                     CollectorType.APP_USAGE -> appUsageCollector.hasUsageStatsPermission()
                     CollectorType.AUDIO_LEVEL ->
                         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                    CollectorType.CALL_LOG ->
+                        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
                     else -> true
                 }
             },

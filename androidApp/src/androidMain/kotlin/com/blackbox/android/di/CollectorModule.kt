@@ -5,9 +5,11 @@ import com.blackbox.android.collector.AppUsageCollector
 import com.blackbox.android.collector.AudioLevelCollector
 import com.blackbox.android.collector.BarometerCollector
 import com.blackbox.android.collector.BatteryCollector
+import com.blackbox.android.collector.CallLogCollector
 import com.blackbox.android.collector.ConnectivityCollector
 import com.blackbox.android.collector.LightCollector
 import com.blackbox.android.collector.LocationCollector
+import com.blackbox.android.collector.MediaPlaybackCollector
 import com.blackbox.android.collector.ScreenStateCollector
 import com.blackbox.android.collector.WifiCollector
 import com.blackbox.android.collector.base.CollectorOrchestrator
@@ -35,6 +37,8 @@ val collectorModule = module {
     single { ConnectivityCollector(androidContext(), get()) }
     single { BarometerCollector(androidContext(), get()) }
     single { LightCollector(androidContext(), get()) }
+    single { CallLogCollector(androidContext(), get()) }
+    single { MediaPlaybackCollector(androidContext(), get()) }
 
     // Orchestrator with all collectors registered
     single {
@@ -49,6 +53,8 @@ val collectorModule = module {
             register(get<ConnectivityCollector>())
             register(get<BarometerCollector>())
             register(get<LightCollector>())
+            register(get<CallLogCollector>())
+            register(get<MediaPlaybackCollector>())
         }
     }
 }

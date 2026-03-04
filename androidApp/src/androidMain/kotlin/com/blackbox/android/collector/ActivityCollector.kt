@@ -1,16 +1,19 @@
 package com.blackbox.android.collector
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
 import android.os.SystemClock
+import androidx.core.content.ContextCompat
 import com.blackbox.android.collector.base.BaseCollector
 import com.blackbox.android.collector.receiver.ActivityTransitionReceiver
 import com.blackbox.domain.model.record.ActivityData
@@ -82,12 +85,28 @@ class ActivityCollector(
     /**
      * Set of `elapsedRealtimeNanos` values already processed this session.
      * The GMS Activity Recognition API can deliver the same event multiple times
-     * in one batch; this set prevents saving duplicate records.
+     * in one batch; this set prevents saving duplicate records within one session.
      */
     private val processedEventNanos = mutableSetOf<Long>()
 
+    /**
+     * Wall-clock timestamp (ms) of the most recently saved activity record.
+     * Intentionally NOT reset on restart — persists for the lifetime of this
+     * collector instance so that GMS re-deliveries after service restarts are
+     * rejected even if [processedEventNanos] was cleared.
+     */
+    private var lastSavedTimestampMs: Long = 0L
+
     @SuppressLint("MissingPermission")
     override fun onCollectorStarted() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            logger.w(TAG, "ACTIVITY_RECOGNITION permission not granted — go to Settings > Special app access > Physical activity")
+            return
+        }
+
         logger.i(TAG, "Starting activity recognition")
         sessionId = UUID.randomUUID().toString()
         sessionStartMs = System.currentTimeMillis()
@@ -268,10 +287,13 @@ class ActivityCollector(
         val elapsedNow = SystemClock.elapsedRealtimeNanos()
         val timestampMs = now - ((elapsedNow - elapsedRealtimeNanos) / 1_000_000)
 
-        // Discard events older than this session's start time — these are historical
-        // transitions buffered by Android and delivered on re-registration (e.g. after
-        // the app was reinstalled). They do not belong to the current session.
-        if (timestampMs < sessionStartMs) {
+        // Discard events that are clearly historical — buffered by Android from long before
+        // this session (e.g., after reinstall). A generous grace window allows events that
+        // occurred just before a service restart to still be saved: the service can restart
+        // mid-activity (e.g., Doze wake), and the transition event arrives with a timestamp
+        // slightly before the new sessionStartMs. Without the grace window, those events
+        // would be wrongly discarded.
+        if (timestampMs < sessionStartMs - SESSION_GRACE_PERIOD_MS) {
             logger.d(TAG, "Discarding historical activity event: $activityType at $timestampMs (session started at $sessionStartMs)")
             return
         }
@@ -280,6 +302,15 @@ class ActivityCollector(
         // in one batch (identical elapsedRealtimeNanos). Only process each unique event once.
         if (!processedEventNanos.add(elapsedRealtimeNanos)) {
             logger.d(TAG, "Discarding duplicate activity event: $activityType at $timestampMs")
+            return
+        }
+
+        // Cross-restart dedup: if the service was restarted, GMS re-delivers historical
+        // transitions via the PendingIntent. processedEventNanos was cleared on restart,
+        // so the nanos check above won't catch these. Reject any event whose timestamp
+        // is not strictly newer than the last one we already saved.
+        if (timestampMs <= lastSavedTimestampMs) {
+            logger.d(TAG, "Discarding already-saved activity event: $activityType at $timestampMs (lastSaved=$lastSavedTimestampMs)")
             return
         }
 
@@ -312,6 +343,7 @@ class ActivityCollector(
         )
 
         logger.d(TAG, "Activity collected: $activityType (confidence=$confidence, steps=$stepDelta)")
+        lastSavedTimestampMs = timestampMs
         emitRecords(listOf(record))
     }
 
@@ -359,5 +391,17 @@ class ActivityCollector(
         private const val ACTION_ACTIVITY_TRANSITION =
             "com.blackbox.android.ACTION_ACTIVITY_TRANSITION"
         private const val REQUEST_CODE = 1001
+
+        /**
+         * How far back we accept historical activity transition events delivered by GMS
+         * after service restart. When the foreground service is killed by Android (memory
+         * pressure, battery optimization, etc.) and later restarts, GMS delivers all
+         * transitions that occurred while the service was dead as "historical" events.
+         * Without a generous window here, all of those real transitions get discarded.
+         *
+         * 48 hours covers service outages up to 2 days. Events older than this are
+         * considered pre-install historical noise and discarded.
+         */
+        private const val SESSION_GRACE_PERIOD_MS = 48L * 60 * 60 * 1000 // 48 hours
     }
 }

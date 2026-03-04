@@ -23,9 +23,9 @@ import kotlinx.coroutines.flow.flow
  *
  * The three "base" groups (LOCATION, ACTIVITY, Derived Events) are always
  * included. When [showAll] is `true`, one additional card is produced for
- * each of the remaining eight collectors (WIFI, CONNECTIVITY, BATTERY,
- * SCREEN_STATE, APP_USAGE, AUDIO_LEVEL, BAROMETER, LIGHT) showing their
- * raw [CollectedRecord] list for inspection.
+ * each of the remaining ten collectors (WIFI, CONNECTIVITY, BATTERY,
+ * SCREEN_STATE, APP_USAGE, AUDIO_LEVEL, BAROMETER, LIGHT, CALL_LOG,
+ * MEDIA_PLAYBACK) showing their raw [CollectedRecord] list for inspection.
  *
  * Empty groups (zero records/entries) are filtered out of the result.
  * Groups are sorted by [CollectorGroup.lastRecordTime] descending so the
@@ -50,7 +50,7 @@ class GetCollectorGroupsUseCase(
      *
      * @param startTime Start of the range in epoch ms.
      * @param endTime End of the range in epoch ms.
-     * @param showAll When `true`, all 10 collector types are included; otherwise only 3.
+     * @param showAll When `true`, all 12 collector types are included; otherwise only 3.
      * @return [Result] containing the list of non-empty [CollectorGroup] instances.
      */
     suspend operator fun invoke(
@@ -127,6 +127,8 @@ class GetCollectorGroupsUseCase(
                 CollectorType.AUDIO_LEVEL,
                 CollectorType.BAROMETER,
                 CollectorType.LIGHT,
+                CollectorType.CALL_LOG,
+                CollectorType.MEDIA_PLAYBACK,
             )
             for (type in rawTypes) {
                 val records = recordRepository.getRecordsByTypeInRange(type, startTime, endTime)
@@ -225,8 +227,12 @@ class GetCollectorGroupsUseCase(
     }
 
     private fun buildActivityEntries(records: List<CollectedRecord>): List<TimelineEntry> {
+        // Deduplicate by timestamp — GMS re-deliveries across service restarts can produce
+        // multiple DB rows with the same timestamp. Keep the first occurrence of each.
+        val seen = mutableSetOf<Long>()
         return records.mapNotNull { record ->
             val activityData = (record.data as? RecordData.Activity)?.activityData ?: return@mapNotNull null
+            if (!seen.add(record.timestamp)) return@mapNotNull null
             TimelineEntry(
                 startTimestamp = record.timestamp,
                 type = TimelineEntryType.ACTIVITY,

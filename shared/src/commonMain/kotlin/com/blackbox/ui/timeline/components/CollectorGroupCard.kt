@@ -207,4 +207,6 @@ private fun accentColorFor(collectorType: CollectorType?): Color = when (collect
     CollectorType.AUDIO_LEVEL -> Color(0xFFFF1744)        // Red
     CollectorType.BAROMETER -> Color(0xFF00E5FF)          // Teal
     CollectorType.LIGHT -> Color(0xFFB0BEC5)              // Silver
+    CollectorType.CALL_LOG -> Color(0xFF69F0AE)           // Mint Green
+    CollectorType.MEDIA_PLAYBACK -> Color(0xFFEA80FC)     // Violet
 }

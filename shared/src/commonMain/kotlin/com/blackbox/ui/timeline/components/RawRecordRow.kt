@@ -84,7 +84,8 @@ private fun summarise(data: RecordData): String = when (data) {
         "$level · $charging"
     }
     is RecordData.ScreenState -> {
-        data.screenStateData.state.name
+        val brightness = data.screenStateData.brightness?.let { " · brightness=$it" } ?: ""
+        "${data.screenStateData.state.name}$brightness"
     }
     is RecordData.AppUsage -> {
         data.appUsageData.foregroundApp
@@ -97,6 +98,16 @@ private fun summarise(data: RecordData): String = when (data) {
     }
     is RecordData.Light -> {
         "${"%.0f".format(data.lightData.lux)} lx"
+    }
+    is RecordData.CallLog -> {
+        "${data.callLogData.callType} · ${data.callLogData.durationSeconds}s"
+    }
+    is RecordData.MediaPlayback -> {
+        if (data.mediaPlaybackData.isPlaying) {
+            "PLAYING · ${data.mediaPlaybackData.outputType}"
+        } else {
+            "STOPPED"
+        }
     }
     // Base collectors — raw rows are not shown for these, but handle gracefully
     is RecordData.Location -> {

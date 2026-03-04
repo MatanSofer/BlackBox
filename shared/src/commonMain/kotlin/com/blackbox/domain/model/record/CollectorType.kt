@@ -28,4 +28,8 @@ enum class CollectorType {
     BAROMETER,
     /** Ambient light level sensor (disabled by default). */
     LIGHT,
+    /** System call log entries (disabled by default — sensitive). */
+    CALL_LOG,
+    /** Audio playback state and output device. */
+    MEDIA_PLAYBACK,
 }

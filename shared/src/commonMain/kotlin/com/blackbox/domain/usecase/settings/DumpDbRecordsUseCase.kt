@@ -169,6 +169,16 @@ class DumpDbRecordsUseCase(
             val d = data.lightData
             "${d.lux.f(0)}lux ${d.classification}"
         }
+
+        is RecordData.CallLog -> {
+            val d = data.callLogData
+            "${d.callType} ${d.durationSeconds}s hash=${d.numberHash}"
+        }
+
+        is RecordData.MediaPlayback -> {
+            val d = data.mediaPlaybackData
+            "${if (d.isPlaying) "PLAYING" else "STOPPED"} vol=${d.volumePercent}% ${d.outputType}"
+        }
     }
 
     // ── Float/Double formatting helpers (no String.format needed) ─────────────

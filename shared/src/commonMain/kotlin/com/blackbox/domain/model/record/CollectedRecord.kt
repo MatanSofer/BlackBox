@@ -53,4 +53,8 @@ sealed interface RecordData {
     data class Barometer(val barometerData: BarometerData) : RecordData
     /** Ambient light level reading. */
     data class Light(val lightData: LightData) : RecordData
+    /** System call log entry. */
+    data class CallLog(val callLogData: CallLogData) : RecordData
+    /** Audio playback state snapshot. */
+    data class MediaPlayback(val mediaPlaybackData: MediaPlaybackData) : RecordData
 }
