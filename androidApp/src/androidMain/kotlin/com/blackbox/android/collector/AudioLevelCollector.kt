@@ -134,7 +134,8 @@ class AudioLevelCollector(
                 (20 * log10(rms / Short.MAX_VALUE) + REFERENCE_DB_OFFSET).toFloat()
                     .coerceIn(0f, 130f)
             } else {
-                0f
+                logger.w(TAG, "Mic returned silent buffer (all zeros) — audio focus likely held by another app, skipping record")
+                null
             }
         } catch (e: SecurityException) {
             logger.e(TAG, "Security exception during audio recording", e)
