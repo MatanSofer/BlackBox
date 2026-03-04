@@ -137,11 +137,11 @@ class AudioLevelCollector(
             val rms = sqrt(sumSquares / readCount)
 
             // Convert to dB (reference: 1.0 = max 16-bit amplitude)
-            return if (rms > 0) {
+            return if (rms >= MIN_NOISE_FLOOR) {
                 (20 * log10(rms / Short.MAX_VALUE) + REFERENCE_DB_OFFSET).toFloat()
                     .coerceIn(0f, 130f)
             } else {
-                logger.w(TAG, "Mic returned silent buffer (all zeros) — audio focus likely held by another app")
+                logger.w(TAG, "Mic returned near-silent buffer (rms=$rms) — likely held by another app")
                 Float.NaN // sentinel: mic was held, save record with micAvailable=false
             }
         } catch (e: SecurityException) {
@@ -181,5 +181,13 @@ class AudioLevelCollector(
 
         /** dB offset to convert from digital full-scale to approximate SPL. */
         private const val REFERENCE_DB_OFFSET = 90f
+
+        /**
+         * Minimum RMS value expected from a real microphone capture.
+         * Any rms below this means the mic was held by another app and
+         * returned a near-zero or all-zero buffer instead of real audio.
+         * Real microphones always have an electronic noise floor well above this.
+         */
+        private const val MIN_NOISE_FLOOR = 1.0
     }
 }
