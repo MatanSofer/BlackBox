@@ -62,6 +62,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.sqldelight.android.driver)
             implementation(libs.sqlcipher)
+            implementation(libs.osmdroid)
         }
         iosMain.dependencies {
             implementation(libs.sqldelight.native.driver)

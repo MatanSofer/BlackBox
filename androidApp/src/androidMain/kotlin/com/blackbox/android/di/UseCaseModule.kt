@@ -14,6 +14,7 @@ import com.blackbox.domain.usecase.query.ProcessQueryUseCase
 import com.blackbox.domain.usecase.record.GetRecordsUseCase
 import com.blackbox.domain.usecase.record.SaveLocationRecordUseCase
 import com.blackbox.domain.usecase.record.SaveRecordUseCase
+import com.blackbox.domain.usecase.map.GetDayLocationSummaryUseCase
 import com.blackbox.domain.usecase.settings.DumpDbRecordsUseCase
 import com.blackbox.domain.usecase.settings.UpdateCollectorSettingUseCase
 import com.blackbox.domain.usecase.timeline.GenerateDailySummaryUseCase
@@ -46,6 +47,9 @@ val useCaseModule = module {
     single { GetTimelineUseCase(get(), get(), get(), get(), get()) }
     single { GetCollectorGroupsUseCase(get(), get(), get(), get(), get()) }
     single { GenerateDailySummaryUseCase(get(), get(), get(), get()) }
+
+    // Map use cases
+    single { GetDayLocationSummaryUseCase(get(), get(), get()) }
 
     // Place use cases
     single { GetPlacesUseCase(get(), get()) }

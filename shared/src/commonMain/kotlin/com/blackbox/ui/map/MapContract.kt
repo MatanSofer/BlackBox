@@ -1,6 +1,7 @@
 package com.blackbox.ui.map
 
-import com.blackbox.domain.model.place.KnownPlace
+import com.blackbox.domain.model.map.DayLocationSummary
+import com.blackbox.domain.model.map.LocationStay
 
 /**
  * MVI contract for the Map screen.
@@ -11,13 +12,17 @@ object MapContract {
     /**
      * Single immutable UI state for the Map screen.
      *
-     * @property isLoading Whether map data is being loaded.
-     * @property knownPlaces List of known places to display on the map.
-     * @property error Error message to display, if any.
+     * @property selectedDate Currently displayed date, formatted as "yyyy-MM-dd".
+     * @property isLoading Whether location data is being loaded.
+     * @property summary Day location summary for [selectedDate], or null while loading.
+     * @property selectedStay The stay dot currently tapped by the user, or null.
+     * @property error Error message to display, or null.
      */
     data class State(
+        val selectedDate: String = "",
         val isLoading: Boolean = false,
-        val knownPlaces: List<KnownPlace> = emptyList(),
+        val summary: DayLocationSummary? = null,
+        val selectedStay: LocationStay? = null,
         val error: String? = null,
     )
 
@@ -25,9 +30,15 @@ object MapContract {
      * Actions dispatched from the UI to the ViewModel.
      */
     sealed interface Action {
-        /** User tapped a place on the map. */
-        data class PlaceClicked(val place: KnownPlace) : Action
-        /** User pulled to refresh. */
+        /** Navigate to the previous day. */
+        data object PreviousDay : Action
+        /** Navigate to the next day. */
+        data object NextDay : Action
+        /** Jump directly to a specific date. */
+        data class DateSelected(val date: String) : Action
+        /** User tapped a stay dot (non-null) or the map background (null = deselect). */
+        data class StayTapped(val stay: LocationStay?) : Action
+        /** Reload location data for the current date. */
         data object Refresh : Action
     }
 
@@ -35,7 +46,6 @@ object MapContract {
      * One-time events from the ViewModel to the UI.
      */
     sealed interface Event {
-        /** Show a snackbar with a message. */
         data class ShowSnackbar(val message: String) : Event
     }
 }
