@@ -130,7 +130,7 @@ class DumpDbRecordsUseCase(
 
         is RecordData.AudioLevel -> {
             val d = data.audioLevelData
-            "${d.dbLevel.f(1)}dB ${d.classification}"
+            if (!d.micAvailable) "MIC HELD BY OTHER APP" else "${d.dbLevel.f(1)}dB ${d.classification}"
         }
 
         is RecordData.Battery -> {

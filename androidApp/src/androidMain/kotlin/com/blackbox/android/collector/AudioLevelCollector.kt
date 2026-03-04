@@ -56,13 +56,16 @@ class AudioLevelCollector(
         }
 
         val now = System.currentTimeMillis()
-        val dbLevel = measureAmbientDb() ?: return emptyList()
-        val classification = classifyNoise(dbLevel)
+        val rawDb = measureAmbientDb() ?: return emptyList()
+        val micAvailable = !rawDb.isNaN()
+        val dbLevel = if (micAvailable) rawDb else 0f
+        val classification = if (micAvailable) classifyNoise(dbLevel) else NoiseClassification.SILENT
 
         val audioData = AudioLevelData(
             dbLevel = dbLevel,
             classification = classification,
             sampleDurationMs = SAMPLE_DURATION_MS,
+            micAvailable = micAvailable,
         )
 
         val record = CollectedRecord(
@@ -74,7 +77,11 @@ class AudioLevelCollector(
             createdAt = now,
         )
 
-        logger.d(TAG, "Audio level collected: ${dbLevel}dB ($classification)")
+        if (micAvailable) {
+            logger.d(TAG, "Audio level collected: ${dbLevel}dB ($classification)")
+        } else {
+            logger.d(TAG, "Audio level collected: mic unavailable (held by another app)")
+        }
         return listOf(record)
     }
 
@@ -134,8 +141,8 @@ class AudioLevelCollector(
                 (20 * log10(rms / Short.MAX_VALUE) + REFERENCE_DB_OFFSET).toFloat()
                     .coerceIn(0f, 130f)
             } else {
-                logger.w(TAG, "Mic returned silent buffer (all zeros) — audio focus likely held by another app, skipping record")
-                null
+                logger.w(TAG, "Mic returned silent buffer (all zeros) — audio focus likely held by another app")
+                Float.NaN // sentinel: mic was held, save record with micAvailable=false
             }
         } catch (e: SecurityException) {
             logger.e(TAG, "Security exception during audio recording", e)
