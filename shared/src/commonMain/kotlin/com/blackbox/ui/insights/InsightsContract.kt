@@ -4,6 +4,22 @@ import com.blackbox.domain.repository.DailyScreenTime
 import com.blackbox.domain.repository.DailyStepCount
 
 /**
+ * The four insight visualization modes available on the Insights screen.
+ *
+ * @property label Short display label shown on the tab chip.
+ */
+enum class InsightTab(val label: String) {
+    /** 12-cell DNA-strand strip per day encoding active vs screen time. */
+    DNA("DNA"),
+    /** 24-hour radial clock with concentric rings for wake/screen/steps. */
+    LIFE_CLOCK("LIFE CLOCK"),
+    /** Wake-time consistency card with badge and per-day pickup dots. */
+    MORNING("MORNING"),
+    /** Bidirectional daily bar chart: steps (green) vs screen time (cyan). */
+    MOVEMENT("MOVEMENT"),
+}
+
+/**
  * MVI contract for the Insights screen.
  * Defines all possible states, user actions, and one-time events.
  */
@@ -31,6 +47,7 @@ object InsightsContract {
         val averageWakeTimeMs: Long? = null,
         val averageSleepTimeMs: Long? = null,
         val selectedPeriodDays: Int = 7,
+        val selectedTab: InsightTab = InsightTab.MOVEMENT,
         val error: String? = null,
     )
 
@@ -40,6 +57,8 @@ object InsightsContract {
     sealed interface Action {
         /** User selected a different time period for analysis. */
         data class PeriodSelected(val days: Int) : Action
+        /** User switched to a different insight visualization tab. */
+        data class TabSelected(val tab: InsightTab) : Action
         /** User pulled to refresh. */
         data object Refresh : Action
     }

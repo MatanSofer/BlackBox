@@ -52,6 +52,7 @@ class InsightsViewModel(
                 _state.update { it.copy(selectedPeriodDays = action.days) }
                 loadInsights(action.days)
             }
+            is InsightsContract.Action.TabSelected -> _state.update { it.copy(selectedTab = action.tab) }
             is InsightsContract.Action.Refresh -> loadInsights(_state.value.selectedPeriodDays)
         }
     }
