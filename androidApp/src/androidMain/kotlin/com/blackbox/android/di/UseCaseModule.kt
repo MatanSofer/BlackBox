@@ -9,8 +9,10 @@ import com.blackbox.domain.query.TimeExpressionParser
 import com.blackbox.domain.usecase.insight.GetInsightsUseCase
 import com.blackbox.domain.usecase.place.DetectKnownPlacesUseCase
 import com.blackbox.domain.usecase.place.GetPlacesUseCase
+import com.blackbox.data.query.QueryContextFormatter
 import com.blackbox.domain.usecase.query.GetRecentQueriesUseCase
 import com.blackbox.domain.usecase.query.ProcessQueryUseCase
+import com.blackbox.domain.usecase.query.ProcessQueryWithAiUseCase
 import com.blackbox.domain.usecase.record.GetRecordsUseCase
 import com.blackbox.domain.usecase.record.SaveLocationRecordUseCase
 import com.blackbox.domain.usecase.record.SaveRecordUseCase
@@ -42,6 +44,8 @@ val useCaseModule = module {
     // Query use cases
     single { ProcessQueryUseCase(get(), get(), get()) }
     single { GetRecentQueriesUseCase(get(), get()) }
+    single { QueryContextFormatter() }
+    single { ProcessQueryWithAiUseCase(get(), get(), get(), get()) }
 
     // Timeline use cases
     single { GetTimelineUseCase(get(), get(), get(), get(), get()) }

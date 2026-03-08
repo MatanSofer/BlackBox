@@ -3,6 +3,9 @@ package com.blackbox.android.di
 import com.blackbox.android.security.BiometricManager
 import com.blackbox.android.security.KeyManager
 import com.blackbox.android.util.AndroidLogger
+import com.blackbox.data.remote.NoOpAiClient
+import com.blackbox.data.remote.OpenAiClientImpl
+import com.blackbox.domain.service.AiClient
 import com.blackbox.domain.util.BlackBoxLogger
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -16,6 +19,10 @@ val appModule = module {
     single<BlackBoxLogger> { AndroidLogger() }
     single { KeyManager(androidContext(), get()) }
     single { BiometricManager(get()) }
+    single<AiClient> {
+        val key = com.blackbox.android.BuildConfig.OPENAI_API_KEY
+        if (key.isNotBlank()) OpenAiClientImpl(key) else NoOpAiClient()
+    }
 }
 
 /**

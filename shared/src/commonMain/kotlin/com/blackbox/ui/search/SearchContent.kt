@@ -1,5 +1,8 @@
 package com.blackbox.ui.search
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,7 +31,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -52,8 +59,11 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * Pure UI content for the Search screen — cyberpunk query terminal.
  *
- * Renders the neon-styled query terminal header, search bar, recent queries,
- * results, and suggestions. Receives state and emits actions — no ViewModel.
+ * Implements a two-phase result display:
+ * - Phase 1: local engine result appears immediately with an AI loading indicator.
+ * - Phase 2: when AI responds, its answer replaces the answer area in a prominent
+ *   NeonMagenta card; the local result moves below as a secondary reference.
+ *   If AI fails, a subtle fallback banner is shown below the local result.
  *
  * @param state Current UI state from the ViewModel.
  * @param onAction Callback to dispatch user actions.
@@ -79,7 +89,7 @@ fun SearchContent(
             modifier = Modifier.padding(bottom = Dimens.SpacingMd),
         )
 
-        // Search input with neon styling
+        // Search input
         OutlinedTextField(
             value = state.query,
             onValueChange = { onAction(SearchContract.Action.QueryChanged(it)) },
@@ -92,27 +102,17 @@ fun SearchContent(
                 )
             },
             leadingIcon = {
-                Icon(
-                    Icons.Default.Search,
-                    contentDescription = null,
-                    tint = BlackBoxColors.NeonGreen,
-                )
+                Icon(Icons.Default.Search, contentDescription = null, tint = BlackBoxColors.NeonGreen)
             },
             trailingIcon = {
                 if (state.query.isNotEmpty()) {
                     IconButton(onClick = { onAction(SearchContract.Action.ClearResults) }) {
-                        Icon(
-                            Icons.Default.Clear,
-                            contentDescription = null,
-                            tint = BlackBoxColors.TextMuted,
-                        )
+                        Icon(Icons.Default.Clear, contentDescription = null, tint = BlackBoxColors.TextMuted)
                     }
                 }
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(
-                onSearch = { onAction(SearchContract.Action.SubmitQuery) },
-            ),
+            keyboardActions = KeyboardActions(onSearch = { onAction(SearchContract.Action.SubmitQuery) }),
             singleLine = true,
             shape = MaterialTheme.shapes.extraSmall,
             colors = OutlinedTextFieldDefaults.colors(
@@ -129,48 +129,53 @@ fun SearchContent(
         Spacer(modifier = Modifier.height(Dimens.SpacingLg))
 
         when {
-            state.isLoading -> {
-                LoadingIndicator()
-            }
+            // ── Phase 1 spinner — local engine processing ──────────────────────
+            state.isLoading -> LoadingIndicator()
 
-            state.error != null -> {
-                ErrorView(
-                    message = state.error,
-                    onRetry = { onAction(SearchContract.Action.SubmitQuery) },
-                )
-            }
+            // ── Error ──────────────────────────────────────────────────────────
+            state.error != null -> ErrorView(
+                message = state.error,
+                onRetry = { onAction(SearchContract.Action.SubmitQuery) },
+            )
 
+            // ── Results area ───────────────────────────────────────────────────
             state.result != null -> {
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    // Result card with neon glow
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .neonGlowBackground(BlackBoxColors.NeonGreenFaint)
-                            .neonBorder(color = BlackBoxColors.NeonGreen, cornerRadius = 4.dp)
-                            .padding(Dimens.PaddingCard),
+                    // ── AI response card (Phase 2 — prominent) ─────────────────
+                    AnimatedVisibility(
+                        visible = state.isAiMode && state.aiResponse != null,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
                     ) {
-                        Text(
-                            text = state.result.responseText,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = BlackBoxColors.TextPrimary,
-                        )
-
-                        if (state.result.data.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(Dimens.SpacingSm))
-                            Text(
-                                text = "${state.result.data.size} RECORDS FOUND",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = BlackBoxColors.NeonGreen,
-                            )
+                        if (state.aiResponse != null) {
+                            AiResponseCard(text = state.aiResponse)
+                            Spacer(modifier = Modifier.height(Dimens.SpacingMd))
                         }
                     }
 
-                    // Suggested follow-ups
+                    // ── AI loading card (between Phase 1 result and Phase 2) ───
+                    AnimatedVisibility(visible = state.isAiLoading) {
+                        AiLoadingCard()
+                        Spacer(modifier = Modifier.height(Dimens.SpacingMd))
+                    }
+
+                    // ── Local engine result card ───────────────────────────────
+                    LocalResultCard(
+                        result = state.result,
+                        isSecondary = state.isAiMode,
+                    )
+
+                    // ── Fallback banner (AI failed) ────────────────────────────
+                    if (!state.isAiMode && !state.isAiLoading && state.aiFallbackReason != null) {
+                        Spacer(modifier = Modifier.height(Dimens.SpacingSm))
+                        FallbackBanner(reason = state.aiFallbackReason)
+                    }
+
+                    // ── Suggested follow-ups ───────────────────────────────────
                     if (state.suggestedFollowUps.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(Dimens.SpacingLg))
                         Text(
@@ -189,18 +194,10 @@ fun SearchContent(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = BlackBoxColors.ElectricCyan,
                                     modifier = Modifier
-                                        .neonBorder(
-                                            color = BlackBoxColors.ElectricCyan,
-                                            cornerRadius = 4.dp,
-                                        )
+                                        .neonBorder(color = BlackBoxColors.ElectricCyan, cornerRadius = 4.dp)
                                         .background(BlackBoxColors.ElectricCyanFaint)
-                                        .padding(
-                                            horizontal = Dimens.SpacingSm,
-                                            vertical = Dimens.SpacingXs,
-                                        )
-                                        .clickable {
-                                            onAction(SearchContract.Action.SuggestionClicked(suggestion))
-                                        },
+                                        .padding(horizontal = Dimens.SpacingSm, vertical = Dimens.SpacingXs)
+                                        .clickable { onAction(SearchContract.Action.SuggestionClicked(suggestion)) },
                                 )
                             }
                         }
@@ -208,8 +205,8 @@ fun SearchContent(
                 }
             }
 
+            // ── Empty / recent queries ─────────────────────────────────────────
             else -> {
-                // Empty state: recent queries
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -228,14 +225,8 @@ fun SearchContent(
                                     .fillMaxWidth()
                                     .clickable { onAction(SearchContract.Action.RecentQueryClicked(query)) }
                                     .padding(vertical = Dimens.SpacingXs)
-                                    .neonBorder(
-                                        color = BlackBoxColors.OutlineNeon,
-                                        cornerRadius = 2.dp,
-                                    )
-                                    .padding(
-                                        horizontal = Dimens.SpacingMd,
-                                        vertical = Dimens.SpacingSm,
-                                    ),
+                                    .neonBorder(color = BlackBoxColors.OutlineNeon, cornerRadius = 2.dp)
+                                    .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingSm),
                             ) {
                                 Text(
                                     text = "> $query",
@@ -257,39 +248,154 @@ fun SearchContent(
     }
 }
 
-@Preview(showBackground = true)
+// ── Private sub-composables ────────────────────────────────────────────────────
+
+/**
+ * Prominent AI answer card — NeonMagenta glow, shown after Phase 2 completes.
+ */
 @Composable
-private fun SearchContentEmptyPreview() {
-    BlackBoxTheme {
-        SearchContent(
-            state = SearchContract.State(),
-            onAction = {},
+private fun AiResponseCard(text: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .neonGlowBackground(BlackBoxColors.NeonMagentaFaint)
+            .neonBorder(color = BlackBoxColors.NeonMagenta, cornerRadius = 4.dp)
+            .padding(Dimens.PaddingCard),
+    ) {
+        Text(
+            text = "⚡  AI RESPONSE",
+            style = MaterialTheme.typography.labelSmall,
+            color = BlackBoxColors.NeonMagenta,
+            modifier = Modifier.padding(bottom = Dimens.SpacingXs),
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = BlackBoxColors.TextPrimary,
         )
     }
 }
 
+/**
+ * Pulsing AI loading indicator shown between Phase 1 result and Phase 2 arrival.
+ */
+@Composable
+private fun AiLoadingCard(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .neonBorder(color = BlackBoxColors.NeonMagenta, cornerRadius = 4.dp)
+            .padding(horizontal = Dimens.PaddingCard, vertical = Dimens.SpacingSm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingMd),
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(16.dp),
+            color = BlackBoxColors.NeonMagenta,
+            strokeWidth = 2.dp,
+        )
+        Text(
+            text = "⚡  AI ANALYZING...",
+            style = MaterialTheme.typography.labelMedium,
+            color = BlackBoxColors.NeonMagenta,
+        )
+    }
+}
+
+/**
+ * Local engine result card.
+ *
+ * When [isSecondary] is true (AI answer is shown above), the card uses
+ * a muted ElectricCyan border and dimmed text to visually de-emphasize it.
+ */
+@Composable
+private fun LocalResultCard(
+    result: QueryResult,
+    isSecondary: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val borderColor = if (isSecondary) BlackBoxColors.OutlineNeon else BlackBoxColors.NeonGreen
+    val glowColor  = if (isSecondary) BlackBoxColors.ElectricCyanFaint else BlackBoxColors.NeonGreenFaint
+    val labelColor = if (isSecondary) BlackBoxColors.TextMuted else BlackBoxColors.NeonGreen
+    val textColor  = if (isSecondary) BlackBoxColors.TextMuted else BlackBoxColors.TextPrimary
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .neonGlowBackground(glowColor)
+            .neonBorder(color = borderColor, cornerRadius = 4.dp)
+            .padding(Dimens.PaddingCard),
+    ) {
+        Text(
+            text = if (isSecondary) "LOCAL ENGINE" else "QUERY RESULT",
+            style = MaterialTheme.typography.labelSmall,
+            color = labelColor,
+            modifier = Modifier.padding(bottom = Dimens.SpacingXs),
+        )
+        Text(
+            text = result.responseText,
+            style = MaterialTheme.typography.bodyLarge,
+            color = textColor,
+            fontStyle = if (isSecondary) FontStyle.Italic else FontStyle.Normal,
+        )
+        if (result.data.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(Dimens.SpacingXs))
+            Text(
+                text = "${result.data.size} RECORDS FOUND",
+                style = MaterialTheme.typography.labelSmall,
+                color = labelColor,
+            )
+        }
+    }
+}
+
+/**
+ * Subtle one-line banner shown when AI is unavailable and the local engine is active.
+ */
+@Composable
+private fun FallbackBanner(reason: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(BlackBoxColors.SurfaceVariant)
+            .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingXs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingXs),
+    ) {
+        Text(
+            text = "LOCAL ENGINE ACTIVE",
+            style = MaterialTheme.typography.labelSmall,
+            color = BlackBoxColors.TextMuted,
+        )
+        Text(
+            text = "·  $reason",
+            style = MaterialTheme.typography.labelSmall,
+            color = BlackBoxColors.TextMuted,
+            fontStyle = FontStyle.Italic,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+// ── Previews ──────────────────────────────────────────────────────────────────
+
+private val sampleResult = QueryResult(
+    parsedQuery = ParsedQuery(
+        originalText = "Where was I yesterday?",
+        normalizedText = "where was i yesterday",
+        language = Language.ENGLISH,
+        intent = QueryIntent.LOCATION_QUERY,
+        timeRange = TimeRange(0L, System.currentTimeMillis()),
+    ),
+    responseText = "Yesterday you were at Home for 8 hours, then Office for 6 hours.",
+    suggestedFollowUps = listOf("What route did I take?", "How far did I walk?"),
+)
+
 @Preview(showBackground = true)
 @Composable
-private fun SearchContentWithResultPreview() {
+private fun SearchContentEmptyPreview() {
     BlackBoxTheme {
-        SearchContent(
-            state = SearchContract.State(
-                query = "Where was I yesterday?",
-                result = QueryResult(
-                    parsedQuery = ParsedQuery(
-                        originalText = "Where was I yesterday?",
-                        normalizedText = "where was i yesterday",
-                        language = Language.ENGLISH,
-                        intent = QueryIntent.LOCATION_QUERY,
-                        timeRange = TimeRange(0L, System.currentTimeMillis()),
-                    ),
-                    responseText = "Yesterday you were at Home for 8 hours, then Office for 6 hours.",
-                    suggestedFollowUps = listOf("What route did I take?", "How far did I walk?"),
-                ),
-                suggestedFollowUps = listOf("What route did I take?", "How far did I walk?"),
-            ),
-            onAction = {},
-        )
+        SearchContent(state = SearchContract.State(), onAction = {})
     }
 }
 
@@ -298,9 +404,55 @@ private fun SearchContentWithResultPreview() {
 private fun SearchContentLoadingPreview() {
     BlackBoxTheme {
         SearchContent(
+            state = SearchContract.State(query = "How many steps today?", isLoading = true),
+            onAction = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SearchContentLocalResultPreview() {
+    BlackBoxTheme {
+        SearchContent(
             state = SearchContract.State(
-                query = "How many steps today?",
-                isLoading = true,
+                query = "Where was I yesterday?",
+                result = sampleResult,
+                isAiLoading = true,
+                suggestedFollowUps = sampleResult.suggestedFollowUps,
+            ),
+            onAction = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SearchContentAiResponsePreview() {
+    BlackBoxTheme {
+        SearchContent(
+            state = SearchContract.State(
+                query = "Where was I yesterday?",
+                result = sampleResult,
+                isAiMode = true,
+                aiResponse = "Yesterday you spent most of your day at home — about 8 hours based on your location data. You then headed to what looks like your office around 10 AM and stayed there for roughly 6 hours before returning home in the evening.",
+                suggestedFollowUps = sampleResult.suggestedFollowUps,
+            ),
+            onAction = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SearchContentFallbackPreview() {
+    BlackBoxTheme {
+        SearchContent(
+            state = SearchContract.State(
+                query = "Where was I yesterday?",
+                result = sampleResult,
+                isAiMode = false,
+                aiFallbackReason = "No API key configured",
             ),
             onAction = {},
         )

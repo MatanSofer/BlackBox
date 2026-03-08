@@ -2,6 +2,7 @@ package com.blackbox.android.collector
 
 import android.Manifest
 import android.content.Context
+import android.content.SharedPreferences
 import android.provider.CallLog
 import androidx.core.content.ContextCompat
 import com.blackbox.android.collector.base.BaseCollector
@@ -43,10 +44,17 @@ class CallLogCollector(
     private var sessionId: String = ""
     private var lastQueryTime: Long = 0L
 
+    private val prefs: SharedPreferences by lazy {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
     override fun onCollectorStarted() {
         logger.i(TAG, "Starting call log collector")
         sessionId = UUID.randomUUID().toString()
-        lastQueryTime = System.currentTimeMillis() - POLL_INTERVAL_MS
+        // Restore lastQueryTime from persistent storage so calls between service
+        // restarts are not lost. Fall back to MAX_LOOKBACK_MS on first ever start.
+        lastQueryTime = prefs.getLong(KEY_LAST_QUERY_TIME, System.currentTimeMillis() - MAX_LOOKBACK_MS)
+        logger.d(TAG, "Resuming from lastQueryTime=$lastQueryTime")
     }
 
     override fun onCollectorStopped() {
@@ -67,6 +75,7 @@ class CallLogCollector(
         }
 
         lastQueryTime = now
+        prefs.edit().putLong(KEY_LAST_QUERY_TIME, now).apply()
         logger.d(TAG, "Collected ${records.size} call log entries since ${queryStart}")
         return records
     }
@@ -156,7 +165,14 @@ class CallLogCollector(
         /** Poll every 5 minutes. */
         private const val POLL_INTERVAL_MS = 5L * 60 * 1_000
 
-        /** Never look back more than 24 hours to recover from service restarts. */
+        /**
+         * Maximum window used on first-ever start or if the persisted timestamp
+         * is older than this. 24 h is enough to catch any calls missed during
+         * a service restart without replaying weeks of history.
+         */
         private const val MAX_LOOKBACK_MS = 24L * 60 * 60 * 1_000
+
+        private const val PREFS_NAME = "blackbox_calllog_collector"
+        private const val KEY_LAST_QUERY_TIME = "last_query_time"
     }
 }

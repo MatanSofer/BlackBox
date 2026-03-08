@@ -2,17 +2,24 @@ package com.blackbox.domain.query
 
 import com.blackbox.domain.model.query.Language
 import com.blackbox.domain.model.query.TimeRange
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.toLocalDateTime
 
 /**
  * Parses natural language time expressions into [TimeRange] instances.
  *
  * Supports both English and Hebrew expressions including:
  * - Relative: "yesterday", "last week", "3 days ago", "אתמול", "לפני שבוע"
+ * - Compound: "yesterday morning/afternoon/evening", "אתמול בבוקר/אחה"צ/בערב"
  * - Named periods: "this morning", "last night", "הבוקר", "אמש"
  * - Day names: "on Monday", "last Tuesday", "ביום שני"
  *
- * All computations are relative to [currentTimeMs], which defaults to
- * the system clock but can be overridden for testing.
+ * All day boundaries are computed in the **device's local timezone** via
+ * [kotlinx.datetime] so that "yesterday" means yesterday midnight–midnight
+ * in the user's clock, not UTC midnight. This fixes off-by-offset bugs for
+ * non-UTC locales (e.g. UTC+2 Israel would previously be 2 h off).
  *
  * @property currentTimeMs Supplier for the current time in epoch ms.
  */
@@ -50,17 +57,44 @@ class TimeExpressionParser(
             return TimeRange(now - FIFTEEN_MIN_MS, now)
         }
 
-        // "today"
+        // "today [morning/afternoon/evening]"
         if (text.contains("today")) {
-            return TimeRange(todayStart, todayEnd)
+            return when {
+                text.contains("morning") -> TimeRange(todayStart + 5 * HOUR_MS, todayStart + 12 * HOUR_MS)
+                text.contains("afternoon") || text.contains("noon") -> TimeRange(todayStart + 12 * HOUR_MS, todayStart + 18 * HOUR_MS)
+                text.contains("evening") || (text.contains("night") && !text.contains("last night")) -> TimeRange(todayStart + 18 * HOUR_MS, todayEnd)
+                else -> TimeRange(todayStart, todayEnd)
+            }
         }
 
-        // "yesterday"
+        // "yesterday [morning/afternoon/evening/night]"
+        // Compound expressions must be detected BEFORE the plain "yesterday" branch.
         if (text.contains("yesterday")) {
-            return TimeRange(todayStart - DAY_MS, todayStart - 1)
+            val yesterdayStart = startOfDay(todayStart - HOUR_MS) // midpoint in local yesterday
+            return when {
+                text.contains("morning") -> TimeRange(yesterdayStart + 5 * HOUR_MS, yesterdayStart + 12 * HOUR_MS)
+                text.contains("afternoon") || text.contains("noon") -> TimeRange(yesterdayStart + 12 * HOUR_MS, yesterdayStart + 18 * HOUR_MS)
+                text.contains("evening") || text.contains("night") -> TimeRange(yesterdayStart + 18 * HOUR_MS, yesterdayStart + DAY_MS - 1)
+                else -> TimeRange(yesterdayStart, yesterdayStart + DAY_MS - 1)
+            }
         }
 
-        // "N days ago" / "N hours ago" / "N minutes ago"
+        // "last morning/afternoon/evening/night" — "last" without "yesterday" or "week/month"
+        // Users say "last afternoon" to mean "yesterday afternoon"; must check BEFORE "last week/month".
+        if (text.contains("last")) {
+            val yesterdayStart = startOfDay(todayStart - HOUR_MS)
+            when {
+                text.contains("afternoon") || text.contains("noon") ->
+                    return TimeRange(yesterdayStart + 12 * HOUR_MS, yesterdayStart + 18 * HOUR_MS)
+                text.contains("morning") ->
+                    return TimeRange(yesterdayStart + 5 * HOUR_MS, yesterdayStart + 12 * HOUR_MS)
+                text.contains("evening") ->
+                    return TimeRange(yesterdayStart + 18 * HOUR_MS, yesterdayStart + DAY_MS - 1)
+                // "last night" is handled separately below — skip here
+            }
+        }
+
+        // "N days/hours/minutes ago"
         RELATIVE_PATTERN_EN.find(text)?.let { match ->
             val amount = match.groupValues[1].toLongOrNull() ?: return@let
             val unit = match.groupValues[2]
@@ -77,7 +111,7 @@ class TimeExpressionParser(
 
         // "last night"
         if (text.contains("last night")) {
-            val yesterdayStart = todayStart - DAY_MS
+            val yesterdayStart = startOfDay(todayStart - HOUR_MS)
             return TimeRange(yesterdayStart + 20 * HOUR_MS, todayStart - 1)
         }
 
@@ -139,19 +173,30 @@ class TimeExpressionParser(
             return TimeRange(now - FIFTEEN_MIN_MS, now)
         }
 
-        // "היום" (today)
+        // "היום" (today) — with optional time-of-day
         if (text.contains("היום")) {
-            return TimeRange(todayStart, todayEnd)
+            return when {
+                text.contains("בבוקר") || text.contains("הבוקר") -> TimeRange(todayStart + 5 * HOUR_MS, todayStart + 12 * HOUR_MS)
+                text.contains("אחר הצהריים") || text.contains("אחהצ") || text.contains("אחה\"צ") -> TimeRange(todayStart + 12 * HOUR_MS, todayStart + 18 * HOUR_MS)
+                text.contains("בערב") || text.contains("הערב") -> TimeRange(todayStart + 18 * HOUR_MS, todayEnd)
+                else -> TimeRange(todayStart, todayEnd)
+            }
         }
 
-        // "אתמול" (yesterday)
+        // "אתמול" (yesterday) — with optional time-of-day compound
         if (text.contains("אתמול")) {
-            return TimeRange(todayStart - DAY_MS, todayStart - 1)
+            val yesterdayStart = startOfDay(todayStart - HOUR_MS)
+            return when {
+                text.contains("בבוקר") || text.contains("הבוקר") -> TimeRange(yesterdayStart + 5 * HOUR_MS, yesterdayStart + 12 * HOUR_MS)
+                text.contains("אחר הצהריים") || text.contains("אחהצ") || text.contains("אחה\"צ") -> TimeRange(yesterdayStart + 12 * HOUR_MS, yesterdayStart + 18 * HOUR_MS)
+                text.contains("בערב") || text.contains("בלילה") -> TimeRange(yesterdayStart + 18 * HOUR_MS, yesterdayStart + DAY_MS - 1)
+                else -> TimeRange(yesterdayStart, yesterdayStart + DAY_MS - 1)
+            }
         }
 
         // "אמש" (last night)
         if (text.contains("אמש")) {
-            val yesterdayStart = todayStart - DAY_MS
+            val yesterdayStart = startOfDay(todayStart - HOUR_MS)
             return TimeRange(yesterdayStart + 20 * HOUR_MS, todayStart - 1)
         }
 
@@ -212,24 +257,39 @@ class TimeExpressionParser(
         return null
     }
 
-    /** Returns the start of day (00:00:00.000) for the given epoch ms. */
+    /**
+     * Returns the start of the local calendar day (midnight in the device's timezone)
+     * for the given epoch ms.
+     *
+     * Uses [kotlinx.datetime] rather than UTC modulo so the result is correct
+     * for any UTC offset — avoids the UTC-midnight vs local-midnight mismatch.
+     */
     private fun startOfDay(epochMs: Long): Long {
-        return epochMs - (epochMs % DAY_MS)
+        val tz = TimeZone.currentSystemDefault()
+        val localDate = Instant.fromEpochMilliseconds(epochMs).toLocalDateTime(tz).date
+        return localDate.atStartOfDayIn(tz).toEpochMilliseconds()
     }
 
-    /** Returns 0=Sunday through 6=Saturday for the given epoch ms. */
-    private fun dayOfWeek(epochMs: Long): Int {
-        // Jan 1 1970 was a Thursday (4)
-        return ((epochMs / DAY_MS + 4) % 7).toInt()
+    /**
+     * Returns 0 = Sunday through 6 = Saturday for the given epoch ms,
+     * evaluated in the device's local timezone.
+     */
+    private fun dayOfWeek(epochMs: Long): Long {
+        val tz = TimeZone.currentSystemDefault()
+        val localDate = Instant.fromEpochMilliseconds(epochMs).toLocalDateTime(tz).date
+        // kotlinx.datetime DayOfWeek ordinal: MONDAY=0 … SUNDAY=6
+        // We want SUNDAY=0, MONDAY=1 … SATURDAY=6 → (ordinal + 1) % 7
+        return ((localDate.dayOfWeek.ordinal + 1) % 7).toLong()
     }
 
-    /** Returns 0-based day of month (approximate). */
+    /** Returns 0-based day of month (0–30) in local timezone. */
     private fun dayOfMonth(epochMs: Long): Long {
-        val daysSinceEpoch = epochMs / DAY_MS
-        return daysSinceEpoch % 30
+        val tz = TimeZone.currentSystemDefault()
+        val localDate = Instant.fromEpochMilliseconds(epochMs).toLocalDateTime(tz).date
+        return (localDate.dayOfMonth - 1).toLong()
     }
 
-    /** Finds the start-of-day for the most recent occurrence of a day-of-week. */
+    /** Finds the start-of-day for the most recent occurrence of a day-of-week (local tz). */
     private fun findPreviousDay(now: Long, targetDayOfWeek: Int): Long {
         val todayStart = startOfDay(now)
         val currentDow = dayOfWeek(now)
@@ -238,16 +298,15 @@ class TimeExpressionParser(
         } else {
             7 - (targetDayOfWeek - currentDow)
         }
-        // If daysBack is 0 (same day), go back 7 days
-        val actualDaysBack = if (daysBack == 0) 7 else daysBack
+        val actualDaysBack = if (daysBack == 0L) 7L else daysBack
         return todayStart - (actualDaysBack * DAY_MS)
     }
 
     companion object {
         private const val MINUTE_MS = 60_000L
         private const val FIFTEEN_MIN_MS = 15 * MINUTE_MS
-        private const val HOUR_MS = 3_600_000L
-        private const val DAY_MS = 86_400_000L
+        const val HOUR_MS = 3_600_000L
+        const val DAY_MS = 86_400_000L
         private const val WEEK_MS = 7 * DAY_MS
 
         private val RELATIVE_PATTERN_EN = Regex("""(\d+)\s+(minute|hour|day|week|month)s?\s+ago""")

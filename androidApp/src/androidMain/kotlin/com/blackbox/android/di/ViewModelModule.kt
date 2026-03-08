@@ -23,7 +23,7 @@ import org.koin.dsl.module
  * Compose Navigation can manage their lifecycle correctly.
  */
 val viewModelModule = module {
-    viewModel { SearchViewModel(get(), get()) }
+    viewModel { SearchViewModel(get(), get(), get()) }
     viewModel { TimelineViewModel(get(), get()) }
     viewModel { InsightsViewModel(get()) }
     viewModel { MapViewModel(get()) }

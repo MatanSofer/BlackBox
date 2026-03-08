@@ -12,11 +12,16 @@ object SearchContract {
      * Single immutable UI state for the Search screen.
      *
      * @property query Current text in the search input.
-     * @property isLoading Whether a query is being processed.
-     * @property result The most recent query result, if any.
+     * @property isLoading Whether the local query engine is processing.
+     * @property result The most recent local query result, if any.
      * @property recentQueries List of recent query strings for quick access.
      * @property suggestedFollowUps Follow-up queries suggested by the engine.
      * @property error Error message to display, if any.
+     * @property isAiLoading Whether the AI enrichment request is in-flight.
+     * @property aiResponse The AI-generated response text, if available.
+     * @property isAiMode Whether the displayed answer comes from the AI model.
+     * @property aiFallbackReason Human-readable reason why AI is not available,
+     *   shown as a subtle banner when the local engine is used instead.
      */
     data class State(
         val query: String = "",
@@ -25,6 +30,10 @@ object SearchContract {
         val recentQueries: List<String> = emptyList(),
         val suggestedFollowUps: List<String> = emptyList(),
         val error: String? = null,
+        val isAiLoading: Boolean = false,
+        val aiResponse: String? = null,
+        val isAiMode: Boolean = false,
+        val aiFallbackReason: String? = null,
     )
 
     /**
