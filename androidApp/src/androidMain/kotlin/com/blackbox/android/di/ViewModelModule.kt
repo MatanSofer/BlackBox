@@ -25,7 +25,7 @@ import org.koin.dsl.module
 val viewModelModule = module {
     viewModel { SearchViewModel(get(), get(), get()) }
     viewModel { TimelineViewModel(get(), get()) }
-    viewModel { InsightsViewModel(get()) }
+    viewModel { InsightsViewModel(get(), get()) }
     viewModel { MapViewModel(get()) }
     viewModel {
         val context = androidContext()

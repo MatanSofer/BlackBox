@@ -2,7 +2,9 @@ package com.blackbox.ui.insights
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.blackbox.domain.usecase.insight.GetInsightsUseCase
+import com.blackbox.domain.usecase.insight.GenerateInsightObservationsUseCase
+import com.blackbox.domain.usecase.insight.GetInsightsBriefUseCase
+import com.blackbox.domain.usecase.insight.InsightsBrief
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -11,20 +13,21 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
 
 /**
  * ViewModel for the Insights screen.
  *
- * Loads aggregated trend data for a configurable time period
- * and computes averages for display.
+ * Loading happens in two sequential phases:
+ * 1. [GetInsightsBriefUseCase] — fast, local DB query. Populates all data cards immediately.
+ * 2. [GenerateInsightObservationsUseCase] — LLM call. Shows a loading indicator on the
+ *    observations card, then fills it in. Falls back to rule-based observations on failure.
  *
- * @property getInsightsUseCase Use case for fetching insight data.
+ * @property getInsightsBriefUseCase Aggregates step, screen, app, and location data.
+ * @property generateInsightObservationsUseCase Produces LLM or fallback observations.
  */
 class InsightsViewModel(
-    private val getInsightsUseCase: GetInsightsUseCase,
+    private val getInsightsBriefUseCase: GetInsightsBriefUseCase,
+    private val generateInsightObservationsUseCase: GenerateInsightObservationsUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(InsightsContract.State())
@@ -37,10 +40,8 @@ class InsightsViewModel(
     /** One-time events for the Insights screen. */
     val events: SharedFlow<InsightsContract.Event> = _events.asSharedFlow()
 
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-
     init {
-        loadInsights(_state.value.selectedPeriodDays)
+        loadData()
     }
 
     /**
@@ -48,50 +49,38 @@ class InsightsViewModel(
      */
     fun onAction(action: InsightsContract.Action) {
         when (action) {
-            is InsightsContract.Action.PeriodSelected -> {
-                _state.update { it.copy(selectedPeriodDays = action.days) }
-                loadInsights(action.days)
-            }
-            is InsightsContract.Action.TabSelected -> _state.update { it.copy(selectedTab = action.tab) }
-            is InsightsContract.Action.Refresh -> loadInsights(_state.value.selectedPeriodDays)
+            is InsightsContract.Action.Refresh -> loadData()
+            is InsightsContract.Action.RetryObservations ->
+                _state.value.brief?.let { loadObservations(it) }
         }
     }
 
-    private fun loadInsights(days: Int) {
+    private fun loadData() {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
-
-            val cal = Calendar.getInstance()
-            val endDate = dateFormat.format(cal.time)
-            cal.add(Calendar.DAY_OF_YEAR, -days)
-            val startDate = dateFormat.format(cal.time)
-
-            getInsightsUseCase(startDate, endDate)
-                .onSuccess { data ->
-                    val avgSteps = if (data.stepTrend.isNotEmpty()) {
-                        data.stepTrend.map { it.steps }.average().toInt()
-                    } else 0
-
-                    val avgScreen = if (data.screenTimeTrend.isNotEmpty()) {
-                        data.screenTimeTrend.map { it.totalMinutes }.average().toInt()
-                    } else 0
-
-                    _state.update {
-                        it.copy(
-                            isLoading = false,
-                            stepTrend = data.stepTrend,
-                            screenTimeTrend = data.screenTimeTrend,
-                            averageSteps = avgSteps,
-                            averageScreenMinutes = avgScreen,
-                            averageWakeTimeMs = data.averageWakeTimeMs,
-                            averageSleepTimeMs = data.averageSleepTimeMs,
-                        )
-                    }
+            _state.update { it.copy(isLoadingData = true, error = null, observations = emptyList()) }
+            getInsightsBriefUseCase()
+                .onSuccess { brief ->
+                    _state.update { it.copy(isLoadingData = false, brief = brief) }
+                    loadObservations(brief)
                 }
                 .onFailure { error ->
-                    _state.update {
-                        it.copy(isLoading = false, error = error.message ?: "Failed to load insights")
-                    }
+                    _state.update { it.copy(isLoadingData = false, error = error.message) }
+                    _events.emit(InsightsContract.Event.ShowSnackbar("Failed to load insights"))
+                }
+        }
+    }
+
+    private fun loadObservations(brief: InsightsBrief) {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoadingObservations = true) }
+            generateInsightObservationsUseCase(brief)
+                .onSuccess { observations ->
+                    _state.update { it.copy(isLoadingObservations = false, observations = observations) }
+                }
+                .onFailure {
+                    // Network or API failure — use local rule-based fallback silently
+                    val fallback = generateInsightObservationsUseCase.generateLocalObservations(brief)
+                    _state.update { it.copy(isLoadingObservations = false, observations = fallback) }
                 }
         }
     }
