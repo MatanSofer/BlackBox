@@ -63,13 +63,55 @@ fun RawRecordRow(
 
 /** Converts a raw package name to a readable label; leaves real app names unchanged. */
 private fun cleanPackageName(name: String): String {
+    KNOWN_PACKAGES[name]?.let { return it }
+
     val looksLikePackage = name.contains('.') &&
         name.none { it == ' ' } &&
         name.all { it.isLetterOrDigit() || it == '.' || it == '_' || it == '-' } &&
         name.first().isLowerCase()
-    return if (looksLikePackage) name.substringAfterLast('.').replaceFirstChar { it.uppercaseChar() }
-    else name
+    if (!looksLikePackage) return name
+
+    for ((pkg, label) in KNOWN_PACKAGES) {
+        if (name.startsWith("$pkg.") || name == pkg) return label
+    }
+
+    val segments = name.split('.')
+    for (segment in segments.asReversed()) {
+        if (segment.length >= 3 && segment.lowercase() !in GENERIC_SEGMENTS) {
+            return segment.replaceFirstChar { it.uppercaseChar() }
+        }
+    }
+    return segments.maxByOrNull { it.length }?.replaceFirstChar { it.uppercaseChar() } ?: name
 }
+
+private val KNOWN_PACKAGES = mapOf(
+    "org.telegram.messenger" to "Telegram",
+    "com.whatsapp" to "WhatsApp",
+    "com.instagram.android" to "Instagram",
+    "com.facebook.katana" to "Facebook",
+    "com.twitter.android" to "Twitter",
+    "com.x.android" to "X",
+    "com.snapchat.android" to "Snapchat",
+    "com.spotify.music" to "Spotify",
+    "com.netflix.mediaclient" to "Netflix",
+    "com.google.android.youtube" to "YouTube",
+    "com.google.android.gm" to "Gmail",
+    "com.google.android.chrome" to "Chrome",
+    "com.google.android.apps.maps" to "Google Maps",
+    "com.discord" to "Discord",
+    "com.zhiliaoapp.musically" to "TikTok",
+    "com.reddit.frontpage" to "Reddit",
+    "com.slack" to "Slack",
+    "org.mozilla.firefox" to "Firefox",
+)
+
+private val GENERIC_SEGMENTS = setOf(
+    "android", "messenger", "app", "apps", "mobile", "lite", "debug", "beta",
+    "nh", "client", "main", "launcher", "home", "ui", "service", "services",
+    "core", "framework", "system", "provider", "manager", "helper",
+    "activity", "feature", "module", "lib", "library", "common", "base",
+    "internal", "impl", "utils", "util", "data", "api",
+)
 
 /**
  * Extracts a short human-readable summary from a [RecordData] payload.

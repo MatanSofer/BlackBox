@@ -186,32 +186,56 @@ class GetInsightsBriefUseCase(
         records
             .mapNotNull { (it.data as? RecordData.AppUsage)?.appUsageData }
             .filter { !it.isSystemApp && it.displayName.isNotBlank() }
-            .groupBy { cleanAppDisplayName(it.displayName) }
-            .mapValues { (_, entries) -> entries.sumOf { it.sessionDurationMs } / 60_000L }
+            .mapNotNull { data ->
+                val label = cleanAppDisplayName(data.displayName)
+                // Discard entries that couldn't be resolved to a meaningful name
+                if (label.length < 2 || label.lowercase() in GENERIC_APP_SEGMENTS) null
+                else label to data.sessionDurationMs
+            }
+            .groupBy { (label, _) -> label }
+            .mapValues { (_, pairs) -> pairs.sumOf { (_, ms) -> ms } / 60_000L }
             .entries
             .sortedByDescending { it.value }
             .take(limit)
             .map { AppUsageStat(displayName = it.key, totalMinutes = it.value) }
 
     /**
-     * Cleans up a display name that may be a raw package name (e.g. "com.google.android.youtube").
+     * Resolves a display name that may be a raw package name stored as a fallback.
      *
-     * Package names are all-lowercase with dots and no spaces. When PackageManager cannot
-     * resolve a label (e.g. the app was uninstalled), the collector stores the package name
-     * as the display name. This function converts it to something readable:
-     * "com.google.android.youtube" → "Youtube", "com.whatsapp" → "Whatsapp".
+     * Resolution order:
+     * 1. Exact match in [KNOWN_PACKAGES] → use the canonical label.
+     * 2. Prefix match (e.g. "com.whatsapp.debug") → use the canonical label.
+     * 3. Real app name (contains space or uppercase) → return as-is.
+     * 4. Walk segments from the right, skip [GENERIC_APP_SEGMENTS], capitalize the
+     *    first non-generic segment of length ≥ 3.
      */
     private fun cleanAppDisplayName(name: String): String {
-        // Real app names have spaces, mixed case, or non-package characters
-        val looksLikePackageName = name.contains('.') &&
+        // Exact known package
+        KNOWN_PACKAGES[name]?.let { return it }
+
+        // Real app name — has spaces or mixed case, not a package pattern
+        val looksLikePackage = name.contains('.') &&
             name.none { it == ' ' } &&
             name.all { it.isLetterOrDigit() || it == '.' || it == '_' || it == '-' } &&
             name.first().isLowerCase()
+        if (!looksLikePackage) return name
 
-        if (!looksLikePackageName) return name
+        // Prefix match: "org.telegram.messenger.beta" still maps to Telegram
+        for ((pkg, label) in KNOWN_PACKAGES) {
+            if (name.startsWith("$pkg.") || name == pkg) return label
+        }
 
-        // Take the last dot-segment and capitalize: "com.google.android.youtube" → "Youtube"
-        return name.substringAfterLast('.').replaceFirstChar { it.uppercaseChar() }
+        // Walk segments from the right, skip generic words
+        val segments = name.split('.')
+        for (segment in segments.asReversed()) {
+            if (segment.length >= 3 && segment.lowercase() !in GENERIC_APP_SEGMENTS) {
+                return segment.replaceFirstChar { it.uppercaseChar() }
+            }
+        }
+
+        // All segments generic — return the longest one as last resort
+        return segments.maxByOrNull { it.length }
+            ?.replaceFirstChar { it.uppercaseChar() } ?: name
     }
 
     private fun aggregateTopPlaces(
@@ -233,6 +257,53 @@ class GetInsightsBriefUseCase(
     companion object {
         private const val TAG = "GetInsightsBriefUseCase"
         private const val DAY_MS = 24 * 3600 * 1000L
+
+        /** Canonical labels for the most common apps whose package names are ambiguous. */
+        private val KNOWN_PACKAGES = mapOf(
+            "org.telegram.messenger" to "Telegram",
+            "org.telegram.messenger.beta" to "Telegram Beta",
+            "com.whatsapp" to "WhatsApp",
+            "com.whatsapp.w4b" to "WhatsApp Business",
+            "com.instagram.android" to "Instagram",
+            "com.facebook.katana" to "Facebook",
+            "com.facebook.lite" to "Facebook Lite",
+            "com.twitter.android" to "Twitter",
+            "com.x.android" to "X",
+            "com.snapchat.android" to "Snapchat",
+            "com.spotify.music" to "Spotify",
+            "com.netflix.mediaclient" to "Netflix",
+            "com.google.android.youtube" to "YouTube",
+            "com.google.android.gm" to "Gmail",
+            "com.google.android.chrome" to "Chrome",
+            "com.google.android.apps.maps" to "Google Maps",
+            "com.google.android.apps.photos" to "Google Photos",
+            "com.google.android.googlequicksearchbox" to "Google",
+            "com.discord" to "Discord",
+            "com.zhiliaoapp.musically" to "TikTok",
+            "com.ss.android.ugc.trill" to "TikTok",
+            "com.reddit.frontpage" to "Reddit",
+            "com.linkedin.android" to "LinkedIn",
+            "com.amazon.mShop.android.shopping" to "Amazon",
+            "com.microsoft.teams" to "Microsoft Teams",
+            "com.slack" to "Slack",
+            "org.mozilla.firefox" to "Firefox",
+            "com.brave.browser" to "Brave",
+            "com.microsoft.edge" to "Edge",
+            "com.amazon.kindle" to "Kindle",
+            "com.google.android.apps.youtube.music" to "YouTube Music",
+        )
+
+        /**
+         * Package name segments that are too generic to be used as an app label.
+         * When cleaning a package name we skip these and look for a more specific segment.
+         */
+        private val GENERIC_APP_SEGMENTS = setOf(
+            "android", "messenger", "app", "apps", "mobile", "lite", "debug", "beta",
+            "nh", "client", "main", "launcher", "home", "ui", "service", "services",
+            "core", "framework", "system", "provider", "manager", "helper",
+            "activity", "feature", "module", "lib", "library", "common", "base",
+            "internal", "impl", "utils", "util", "data", "api",
+        )
     }
 }
 
