@@ -37,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import blackbox.shared.generated.resources.Res
 import blackbox.shared.generated.resources.settings_collectors_title
@@ -50,16 +49,16 @@ import com.blackbox.ui.common.LoadingIndicator
 import com.blackbox.ui.theme.BlackBoxColors
 import com.blackbox.ui.theme.BlackBoxTheme
 import com.blackbox.ui.theme.Dimens
-import com.blackbox.ui.theme.neonBorder
+import com.blackbox.ui.theme.obsidianCard
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Pure UI content for the Settings screen — cyberpunk collector control panel.
+ * Pure UI content for the Settings screen — Obsidian collector control panel.
  *
- * Renders collector toggle cards with neon borders, monospace labels,
- * neon green switches, and magenta permission warnings.
+ * Renders collector toggle cards with clean dark surfaces, indigo toggles,
+ * and teal/rose accents per section.
  *
- * @param state Current UI state from the ViewModel.
+ * @param state    Current UI state from the ViewModel.
  * @param onAction Callback to dispatch user actions.
  * @param modifier Optional [Modifier] for the container.
  */
@@ -72,32 +71,39 @@ fun SettingsContent(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(Dimens.PaddingScreen),
+            .padding(horizontal = Dimens.PaddingScreen),
     ) {
+        Spacer(modifier = Modifier.height(Dimens.SpacingLg))
+
         Text(
-            text = stringResource(Res.string.settings_collectors_title).uppercase(),
-            style = MaterialTheme.typography.labelLarge,
-            color = BlackBoxColors.NeonGreen,
+            text = "Settings",
+            style = MaterialTheme.typography.headlineSmall,
+            color = BlackBoxColors.TextPrimary,
+        )
+        Text(
+            text = "Manage collectors and data preferences",
+            style = MaterialTheme.typography.bodyMedium,
+            color = BlackBoxColors.TextTertiary,
+            modifier = Modifier.padding(top = Dimens.SpacingXxs, bottom = Dimens.SpacingLg),
         )
 
-        Spacer(modifier = Modifier.height(Dimens.SpacingMd))
-
         when {
-            state.isLoading -> {
-                LoadingIndicator()
-            }
+            state.isLoading -> LoadingIndicator()
 
-            state.error != null -> {
-                ErrorView(
-                    message = state.error,
-                    onRetry = { onAction(SettingsContract.Action.Refresh) },
-                )
-            }
+            state.error != null -> ErrorView(
+                message = state.error,
+                onRetry = { onAction(SettingsContract.Action.Refresh) },
+            )
 
             else -> {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(Dimens.SpacingSm),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.SpacingXs),
                 ) {
+                    item {
+                        SectionHeader(stringResource(Res.string.settings_collectors_title))
+                        Spacer(modifier = Modifier.height(Dimens.SpacingXs))
+                    }
+
                     items(state.collectorSettings, key = { it.collectorType.name }) { setting ->
                         val permissionGranted = state.permissionsGranted[setting.collectorType] ?: true
                         CollectorSettingCard(
@@ -116,12 +122,8 @@ fun SettingsContent(
 
                     item {
                         Spacer(modifier = Modifier.height(Dimens.SpacingMd))
-                        Text(
-                            text = "DATA INSPECTION",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = BlackBoxColors.NeonGreen,
-                        )
-                        Spacer(modifier = Modifier.height(Dimens.SpacingSm))
+                        SectionHeader("Display")
+                        Spacer(modifier = Modifier.height(Dimens.SpacingXs))
                         DataInspectionCard(
                             isRawDataViewEnabled = state.isRawDataViewEnabled,
                             onToggle = { enabled ->
@@ -132,12 +134,8 @@ fun SettingsContent(
 
                     item {
                         Spacer(modifier = Modifier.height(Dimens.SpacingMd))
-                        Text(
-                            text = "DATA RETENTION",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = BlackBoxColors.ElectricCyan,
-                        )
-                        Spacer(modifier = Modifier.height(Dimens.SpacingSm))
+                        SectionHeader("Data Retention")
+                        Spacer(modifier = Modifier.height(Dimens.SpacingXs))
                         RetentionPeriodCard(
                             retentionPeriod = state.retentionPeriod,
                             onPeriodSelected = { period ->
@@ -148,32 +146,28 @@ fun SettingsContent(
 
                     item {
                         Spacer(modifier = Modifier.height(Dimens.SpacingMd))
-                        Text(
-                            text = "DEBUG",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = BlackBoxColors.NeonMagenta,
-                        )
-                        Spacer(modifier = Modifier.height(Dimens.SpacingSm))
+                        SectionHeader("Debug")
+                        Spacer(modifier = Modifier.height(Dimens.SpacingXs))
                         DbDumpCard(
                             isLoading = state.isDumpLoading,
                             onDump = { onAction(SettingsContract.Action.DumpDbRecords) },
                         )
-                        Spacer(modifier = Modifier.height(Dimens.SpacingMd))
+                        Spacer(modifier = Modifier.height(Dimens.SpacingXl))
                     }
                 }
             }
         }
     }
 
-    // DB dump dialog — AlertDialog creates a floating overlay window, no Box needed
+    // DB dump dialog
     if (state.dbDumpText != null) {
         AlertDialog(
             onDismissRequest = { onAction(SettingsContract.Action.DismissDbDump) },
             title = {
                 Text(
-                    text = "DB RECORDS",
+                    text = "DB Records",
                     style = MaterialTheme.typography.titleMedium,
-                    color = BlackBoxColors.NeonGreen,
+                    color = BlackBoxColors.TextPrimary,
                 )
             },
             text = {
@@ -184,13 +178,13 @@ fun SettingsContent(
                             fontFamily = FontFamily.Monospace,
                             lineHeight = 18.sp,
                         ),
-                        color = BlackBoxColors.TextPrimary,
+                        color = BlackBoxColors.TextSecondary,
                     )
                 }
             },
             confirmButton = {
                 TextButton(onClick = { onAction(SettingsContract.Action.DismissDbDump) }) {
-                    Text("CLOSE", color = BlackBoxColors.NeonGreen)
+                    Text("Close", color = BlackBoxColors.Indigo)
                 }
             },
             containerColor = BlackBoxColors.Surface,
@@ -198,18 +192,28 @@ fun SettingsContent(
     }
 }
 
+// ── Section header ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = BlackBoxColors.TextTertiary,
+        modifier = Modifier.padding(start = Dimens.SpacingXs),
+    )
+}
+
 /**
- * Cyberpunk card displaying a single collector's settings with a neon toggle switch.
+ * Obsidian card displaying a single collector's settings with an indigo toggle.
  *
- * The toggle reflects the **effective** state: both [CollectorSetting.isEnabled]
- * (user preference) AND [permissionGranted] must be true for the switch to appear
- * on. If the user's preference is enabled but the permission is missing, the switch
- * shows off and a neon magenta "Permission required" label is displayed.
+ * When the permission is not granted, shows an amber "Permission required" label
+ * and the switch is forced off regardless of the stored preference.
  *
- * @param setting The collector setting to display.
- * @param permissionGranted Whether the required runtime permission is currently granted.
- * @param onToggle Callback when the toggle is changed.
- * @param modifier Optional [Modifier].
+ * @param setting          The collector setting to display.
+ * @param permissionGranted Whether the required runtime permission is granted.
+ * @param onToggle         Callback when the toggle is changed.
+ * @param modifier         Optional [Modifier].
  */
 @Composable
 private fun CollectorSettingCard(
@@ -219,47 +223,38 @@ private fun CollectorSettingCard(
     modifier: Modifier = Modifier,
 ) {
     val effectivelyEnabled = setting.isEnabled && permissionGranted
-    // Show "PERMISSION REQUIRED" whenever the permission is not granted,
-    // regardless of enabled state — so users see upfront what is needed.
-    val needsPermission = !permissionGranted
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .neonBorder(
-                color = if (effectivelyEnabled) BlackBoxColors.OutlineNeon else BlackBoxColors.OutlineFaint,
-                cornerRadius = 4.dp,
-            )
-            .padding(Dimens.PaddingCard),
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
+            .padding(horizontal = Dimens.PaddingCard, vertical = Dimens.SpacingMd),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = formatCollectorName(setting.collectorType).uppercase(),
+                text = formatCollectorName(setting.collectorType),
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (effectivelyEnabled) BlackBoxColors.TextPrimary else BlackBoxColors.TextMuted,
+                color = if (effectivelyEnabled) BlackBoxColors.TextPrimary else BlackBoxColors.TextSecondary,
             )
 
-            if (needsPermission) {
+            if (!permissionGranted) {
                 Text(
-                    text = "PERMISSION REQUIRED",
+                    text = "Permission required",
                     style = MaterialTheme.typography.bodySmall,
-                    color = BlackBoxColors.NeonMagenta,
+                    color = BlackBoxColors.Warning,
                 )
             } else {
                 val intervalText = if (setting.collectionIntervalMs == 0L) {
-                    "EVENT-DRIVEN"
+                    "Event-driven"
                 } else {
-                    stringResource(
-                        Res.string.settings_interval,
-                        setting.collectionIntervalMs / 1000,
-                    ).uppercase()
+                    stringResource(Res.string.settings_interval, setting.collectionIntervalMs / 1000)
                 }
                 Text(
                     text = intervalText,
                     style = MaterialTheme.typography.bodySmall,
-                    color = BlackBoxColors.TextMuted,
+                    color = BlackBoxColors.TextTertiary,
                 )
             }
         }
@@ -268,26 +263,22 @@ private fun CollectorSettingCard(
             checked = effectivelyEnabled,
             onCheckedChange = onToggle,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = BlackBoxColors.TextOnNeon,
-                checkedTrackColor = BlackBoxColors.NeonGreen,
-                uncheckedThumbColor = BlackBoxColors.TextMuted,
+                checkedThumbColor = BlackBoxColors.OnAccent,
+                checkedTrackColor = BlackBoxColors.Indigo,
+                uncheckedThumbColor = BlackBoxColors.TextTertiary,
                 uncheckedTrackColor = BlackBoxColors.SurfaceVariant,
-                uncheckedBorderColor = BlackBoxColors.OutlineNeon,
+                uncheckedBorderColor = BlackBoxColors.Border,
             ),
         )
     }
 }
 
 /**
- * Card for the Data Inspection section — toggles raw collector data in the Timeline.
- *
- * Unlike collector cards this has no permission implications; it is purely
- * a display preference. A subtitle explains the purpose to orient developers
- * and power users.
+ * Card for the Display section — toggles raw collector data in the Timeline.
  *
  * @param isRawDataViewEnabled Current state of the toggle.
- * @param onToggle Callback when the toggle is changed.
- * @param modifier Optional [Modifier].
+ * @param onToggle             Callback when the toggle is changed.
+ * @param modifier             Optional [Modifier].
  */
 @Composable
 private fun DataInspectionCard(
@@ -298,24 +289,21 @@ private fun DataInspectionCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .neonBorder(
-                color = if (isRawDataViewEnabled) BlackBoxColors.ElectricCyan else BlackBoxColors.OutlineFaint,
-                cornerRadius = 4.dp,
-            )
-            .padding(Dimens.PaddingCard),
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
+            .padding(horizontal = Dimens.PaddingCard, vertical = Dimens.SpacingMd),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "SHOW ALL COLLECTORS IN TIMELINE",
+                text = "Show all collectors in Timeline",
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (isRawDataViewEnabled) BlackBoxColors.TextPrimary else BlackBoxColors.TextMuted,
+                color = if (isRawDataViewEnabled) BlackBoxColors.TextPrimary else BlackBoxColors.TextSecondary,
             )
             Text(
-                text = "Displays raw records from all 10 collectors. Use to verify data collection is working.",
+                text = "Displays raw records from all collectors. Useful for verifying data collection.",
                 style = MaterialTheme.typography.bodySmall,
-                color = BlackBoxColors.TextMuted,
+                color = BlackBoxColors.TextTertiary,
             )
         }
 
@@ -323,11 +311,11 @@ private fun DataInspectionCard(
             checked = isRawDataViewEnabled,
             onCheckedChange = onToggle,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = BlackBoxColors.TextOnNeon,
-                checkedTrackColor = BlackBoxColors.ElectricCyan,
-                uncheckedThumbColor = BlackBoxColors.TextMuted,
+                checkedThumbColor = BlackBoxColors.OnAccent,
+                checkedTrackColor = BlackBoxColors.Teal,
+                uncheckedThumbColor = BlackBoxColors.TextTertiary,
                 uncheckedTrackColor = BlackBoxColors.SurfaceVariant,
-                uncheckedBorderColor = BlackBoxColors.OutlineNeon,
+                uncheckedBorderColor = BlackBoxColors.Border,
             ),
         )
     }
@@ -335,15 +323,11 @@ private fun DataInspectionCard(
 
 /**
  * Card for the Data Retention section — lets the user choose how long raw records
- * are kept before [CleanupWorker] deletes them.
+ * are kept before CleanupWorker deletes them.
  *
- * Uses an [ExposedDropdownMenuBox] styled to match the cyberpunk neon theme.
- * The border colour is [BlackBoxColors.ElectricCyan] to distinguish this setting
- * from the NeonGreen collector toggles.
- *
- * @param retentionPeriod Currently selected retention period.
+ * @param retentionPeriod  Currently selected retention period.
  * @param onPeriodSelected Callback when the user picks a new period.
- * @param modifier Optional [Modifier].
+ * @param modifier         Optional [Modifier].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -357,18 +341,18 @@ private fun RetentionPeriodCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .neonBorder(color = BlackBoxColors.ElectricCyan, cornerRadius = 4.dp)
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
             .padding(Dimens.PaddingCard),
     ) {
         Text(
-            text = "RAW RECORD LIFESPAN",
+            text = "Raw record lifespan",
             style = MaterialTheme.typography.bodyLarge,
             color = BlackBoxColors.TextPrimary,
         )
         Text(
-            text = "Older records are deleted automatically. Summaries are kept forever.",
+            text = "Older records are deleted automatically. Daily summaries are kept forever.",
             style = MaterialTheme.typography.bodySmall,
-            color = BlackBoxColors.TextMuted,
+            color = BlackBoxColors.TextTertiary,
         )
         Spacer(modifier = Modifier.height(Dimens.SpacingSm))
         ExposedDropdownMenuBox(
@@ -383,23 +367,23 @@ private fun RetentionPeriodCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-                textStyle = MaterialTheme.typography.bodyMedium.copy(color = BlackBoxColors.ElectricCyan),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = BlackBoxColors.Indigo),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = BlackBoxColors.Surface,
-                    unfocusedContainerColor = BlackBoxColors.Surface,
-                    focusedIndicatorColor = BlackBoxColors.ElectricCyan,
-                    unfocusedIndicatorColor = BlackBoxColors.OutlineFaint,
-                    focusedTrailingIconColor = BlackBoxColors.ElectricCyan,
-                    unfocusedTrailingIconColor = BlackBoxColors.TextMuted,
-                    focusedTextColor = BlackBoxColors.ElectricCyan,
-                    unfocusedTextColor = BlackBoxColors.ElectricCyan,
+                    focusedContainerColor = BlackBoxColors.SurfaceVariant,
+                    unfocusedContainerColor = BlackBoxColors.SurfaceVariant,
+                    focusedIndicatorColor = BlackBoxColors.Indigo,
+                    unfocusedIndicatorColor = BlackBoxColors.Border,
+                    focusedTrailingIconColor = BlackBoxColors.Indigo,
+                    unfocusedTrailingIconColor = BlackBoxColors.TextTertiary,
+                    focusedTextColor = BlackBoxColors.Indigo,
+                    unfocusedTextColor = BlackBoxColors.Indigo,
                     cursorColor = Color.Transparent,
                 ),
             )
             ExposedDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
-                containerColor = BlackBoxColors.Surface,
+                containerColor = BlackBoxColors.SurfaceElevated,
             ) {
                 RetentionPeriod.entries.forEach { period ->
                     DropdownMenuItem(
@@ -407,11 +391,7 @@ private fun RetentionPeriodCard(
                             Text(
                                 text = retentionPeriodLabel(period),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = if (period == retentionPeriod) {
-                                    BlackBoxColors.ElectricCyan
-                                } else {
-                                    BlackBoxColors.TextPrimary
-                                },
+                                color = if (period == retentionPeriod) BlackBoxColors.Indigo else BlackBoxColors.TextPrimary,
                             )
                         },
                         onClick = {
@@ -428,12 +408,11 @@ private fun RetentionPeriodCard(
 /**
  * Card for the Debug section — triggers a full DB dump formatted as a text block.
  *
- * Shows a spinner while the query is running and a "DUMP" button otherwise.
- * The NeonMagenta border marks this as a developer-only control.
+ * Shows a spinner while the query is running and a "Dump" button otherwise.
  *
  * @param isLoading Whether the dump query is currently running.
- * @param onDump Callback when the user taps the button.
- * @param modifier Optional [Modifier].
+ * @param onDump    Callback when the user taps the button.
+ * @param modifier  Optional [Modifier].
  */
 @Composable
 private fun DbDumpCard(
@@ -444,41 +423,43 @@ private fun DbDumpCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .neonBorder(color = BlackBoxColors.NeonMagenta, cornerRadius = 4.dp)
-            .padding(Dimens.PaddingCard),
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
+            .padding(horizontal = Dimens.PaddingCard, vertical = Dimens.SpacingMd),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "VIEW DB RECORDS",
+                text = "View DB records",
                 style = MaterialTheme.typography.bodyLarge,
                 color = BlackBoxColors.TextPrimary,
             )
             Text(
                 text = "Last ${com.blackbox.domain.usecase.settings.DumpDbRecordsUseCase.MAX_PER_COLLECTOR} records per collector — also logged to logcat [BB_DB_DUMP]",
                 style = MaterialTheme.typography.bodySmall,
-                color = BlackBoxColors.TextMuted,
+                color = BlackBoxColors.TextTertiary,
             )
         }
 
         if (isLoading) {
             CircularProgressIndicator(
-                modifier = Modifier.size(24.dp),
-                color = BlackBoxColors.NeonMagenta,
-                strokeWidth = 2.dp,
+                modifier = Modifier.size(Dimens.IconMd),
+                color = BlackBoxColors.Rose,
+                strokeWidth = Dimens.ElevationSm,
             )
         } else {
             TextButton(onClick = onDump) {
                 Text(
-                    text = "DUMP",
-                    color = BlackBoxColors.NeonMagenta,
+                    text = "Dump",
+                    color = BlackBoxColors.Rose,
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
         }
     }
 }
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 /** Maps a [RetentionPeriod] to a human-readable label. */
 private fun retentionPeriodLabel(period: RetentionPeriod): String = when (period) {
@@ -489,23 +470,20 @@ private fun retentionPeriodLabel(period: RetentionPeriod): String = when (period
     RetentionPeriod.UNLIMITED -> "Unlimited"
 }
 
-/**
- * Formats a [CollectorType] enum into a human-readable name.
- */
-private fun formatCollectorName(type: CollectorType): String {
-    return type.name.replace('_', ' ')
+/** Formats a [CollectorType] enum into a human-readable name. */
+private fun formatCollectorName(type: CollectorType): String =
+    type.name.replace('_', ' ')
         .lowercase()
         .replaceFirstChar { it.uppercase() }
-}
+
+// ── Previews ──────────────────────────────────────────────────────────────────
 
 @Preview(showBackground = true)
 @Composable
 private fun SettingsContentEmptyPreview() {
     BlackBoxTheme {
         SettingsContent(
-            state = SettingsContract.State(
-                collectorSettings = emptyList(),
-            ),
+            state = SettingsContract.State(collectorSettings = emptyList()),
             onAction = {},
         )
     }

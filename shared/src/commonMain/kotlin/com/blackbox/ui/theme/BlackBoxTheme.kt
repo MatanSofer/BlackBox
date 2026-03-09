@@ -4,48 +4,50 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 
 /**
- * Cyberpunk color scheme for BlackBox.
+ * Obsidian color scheme for BlackBox.
  *
- * Near-black backgrounds with neon green primary, electric cyan secondary,
- * and neon magenta for tertiary/error states. Always dark.
+ * Deep near-black backgrounds with soft indigo primary, teal secondary,
+ * and rose for accent/tertiary. Always dark.
  */
-private val CyberpunkColorScheme = darkColorScheme(
-    primary = BlackBoxColors.NeonGreen,
-    onPrimary = BlackBoxColors.TextOnNeon,
-    primaryContainer = BlackBoxColors.NeonGreenFaint,
-    onPrimaryContainer = BlackBoxColors.NeonGreen,
-    secondary = BlackBoxColors.ElectricCyan,
-    onSecondary = BlackBoxColors.TextOnNeon,
-    secondaryContainer = BlackBoxColors.ElectricCyanFaint,
-    onSecondaryContainer = BlackBoxColors.ElectricCyan,
-    tertiary = BlackBoxColors.NeonMagenta,
-    onTertiary = BlackBoxColors.TextOnNeon,
-    tertiaryContainer = BlackBoxColors.NeonMagentaFaint,
-    onTertiaryContainer = BlackBoxColors.NeonMagenta,
-    background = BlackBoxColors.Background,
-    onBackground = BlackBoxColors.TextPrimary,
-    surface = BlackBoxColors.Surface,
-    onSurface = BlackBoxColors.TextPrimary,
-    surfaceVariant = BlackBoxColors.SurfaceVariant,
-    onSurfaceVariant = BlackBoxColors.TextMuted,
-    error = BlackBoxColors.NeonMagenta,
-    onError = BlackBoxColors.TextOnNeon,
-    errorContainer = BlackBoxColors.NeonMagentaFaint,
-    onErrorContainer = BlackBoxColors.NeonMagenta,
-    outline = BlackBoxColors.OutlineNeon,
-    outlineVariant = BlackBoxColors.OutlineFaint,
+private val ObsidianColorScheme = darkColorScheme(
+    primary              = BlackBoxColors.Indigo,
+    onPrimary            = BlackBoxColors.OnAccent,
+    primaryContainer     = BlackBoxColors.IndigoDim,
+    onPrimaryContainer   = BlackBoxColors.IndigoLight,
+    secondary            = BlackBoxColors.Teal,
+    onSecondary          = BlackBoxColors.OnAccent,
+    secondaryContainer   = BlackBoxColors.TealDim,
+    onSecondaryContainer = BlackBoxColors.TealLight,
+    tertiary             = BlackBoxColors.Rose,
+    onTertiary           = BlackBoxColors.OnAccent,
+    tertiaryContainer    = BlackBoxColors.RoseDim,
+    onTertiaryContainer  = BlackBoxColors.Rose,
+    background           = BlackBoxColors.Background,
+    onBackground         = BlackBoxColors.TextPrimary,
+    surface              = BlackBoxColors.Surface,
+    onSurface            = BlackBoxColors.TextPrimary,
+    surfaceVariant       = BlackBoxColors.SurfaceVariant,
+    onSurfaceVariant     = BlackBoxColors.TextSecondary,
+    error                = BlackBoxColors.Error,
+    onError              = BlackBoxColors.OnAccent,
+    errorContainer       = BlackBoxColors.RoseDim,
+    onErrorContainer     = BlackBoxColors.Rose,
+    outline              = BlackBoxColors.Border,
+    outlineVariant       = BlackBoxColors.BorderFaint,
+    scrim                = Color(0xFF000000),
 )
 
 /**
- * BlackBox application theme — cyberpunk aesthetic.
+ * BlackBox application theme — Obsidian aesthetic.
  *
- * Wraps Material 3 [MaterialTheme] with the cyberpunk color palette,
- * monospace typography, and sharp shape system. Always renders dark.
+ * Wraps Material 3 [MaterialTheme] with the Obsidian color palette,
+ * clean sans-serif typography, and modern rounded shape system. Always dark.
  *
  * @param darkTheme Kept for backward compatibility with existing @Preview annotations;
- *   the cyberpunk scheme is always dark regardless of this value.
+ *   the Obsidian scheme is always dark regardless of this value.
  * @param content The composable content to theme.
  */
 @Composable
@@ -54,7 +56,7 @@ fun BlackBoxTheme(
     content: @Composable () -> Unit,
 ) {
     MaterialTheme(
-        colorScheme = CyberpunkColorScheme,
+        colorScheme = ObsidianColorScheme,
         typography = BlackBoxTypography,
         shapes = BlackBoxShapes,
         content = content,

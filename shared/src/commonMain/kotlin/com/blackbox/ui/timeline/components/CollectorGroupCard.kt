@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Icon
@@ -25,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -33,7 +36,8 @@ import com.blackbox.domain.model.timeline.CollectorGroup
 import com.blackbox.domain.model.timeline.TimelineEntry
 import com.blackbox.ui.theme.BlackBoxColors
 import com.blackbox.ui.theme.Dimens
-import com.blackbox.ui.theme.neonBorder
+import com.blackbox.ui.theme.accentLeftBar
+import com.blackbox.ui.theme.obsidianCard
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -41,19 +45,12 @@ import java.util.Locale
 /**
  * An expandable card representing one data collector's records for the current day.
  *
- * The card header always shows:
- * - A colour-coded dot identifying the collector type
- * - The collector display name (e.g. "LOCATION")
- * - A record count badge
- * - A chevron icon that rotates when the card is expanded
+ * Each card has a coloured left accent bar identifying the collector type,
+ * a header with the collector name + record count, and an animated expand/collapse.
  *
- * When expanded, processed [TimelineEntry] rows are shown for the base collectors
- * (LOCATION, ACTIVITY, Derived Events); raw [RawRecordRow] rows are shown for
- * the eight non-base collectors.
- *
- * @param group The collector group to display.
- * @param onToggleExpand Callback invoked when the user taps the header.
- * @param modifier Optional [Modifier].
+ * @param group          The collector group to display.
+ * @param onToggleExpand Callback when the user taps the header.
+ * @param modifier       Optional [Modifier].
  */
 @Composable
 fun CollectorGroupCard(
@@ -64,20 +61,21 @@ fun CollectorGroupCard(
     val accentColor = accentColorFor(group.collectorType)
     val chevronRotation by animateFloatAsState(
         targetValue = if (group.isExpanded) 180f else 0f,
-        label = "chevron_rotation",
+        label = "chevron",
     )
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .neonBorder(color = accentColor.copy(alpha = 0.4f), cornerRadius = 4.dp),
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
+            .accentLeftBar(color = accentColor),
     ) {
-        // Header row
+        // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onToggleExpand)
-                .padding(Dimens.PaddingCard),
+                .padding(start = Dimens.SpacingLg, end = Dimens.PaddingCard, top = Dimens.SpacingMd, bottom = Dimens.SpacingMd),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -85,35 +83,35 @@ fun CollectorGroupCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f),
             ) {
-                // Colour-coded dot
+                // Colour dot
                 Box(
                     modifier = Modifier
-                        .size(10.dp)
-                        .background(accentColor, CircleShape),
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(accentColor),
                 )
-
                 Spacer(modifier = Modifier.width(Dimens.SpacingSm))
-
                 Text(
                     text = group.displayName,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.titleSmall,
                     color = BlackBoxColors.TextPrimary,
                 )
-
                 Spacer(modifier = Modifier.width(Dimens.SpacingSm))
-
-                // Record count badge
+                // Count badge
                 Text(
-                    text = "[${group.recordCount}]",
+                    text = "${group.recordCount}",
                     style = MaterialTheme.typography.labelSmall,
                     color = accentColor,
+                    modifier = Modifier
+                        .background(accentColor.copy(alpha = 0.12f), RoundedCornerShape(Dimens.RadiusFull))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
                 )
             }
 
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = if (group.isExpanded) "Collapse" else "Expand",
-                tint = accentColor,
+                tint = BlackBoxColors.TextTertiary,
                 modifier = Modifier
                     .size(Dimens.IconMd)
                     .rotate(chevronRotation),
@@ -131,15 +129,30 @@ fun CollectorGroupCard(
                     .fillMaxWidth()
                     .padding(bottom = Dimens.SpacingSm),
             ) {
+                // Top divider
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = Dimens.SpacingLg)
+                        .height(1.dp)
+                        .background(BlackBoxColors.BorderFaint),
+                )
+                Spacer(modifier = Modifier.height(Dimens.SpacingXs))
+
                 if (group.rawRecords.isNotEmpty()) {
-                    // Raw records for the eight non-base collectors
                     group.rawRecords.forEach { record ->
-                        RawRecordRow(record = record)
+                        RawRecordRow(
+                            record = record,
+                            modifier = Modifier.padding(start = Dimens.SpacingLg),
+                        )
                     }
                 } else {
-                    // Processed timeline entries for Location / Activity / Derived Events
                     group.entries.forEach { entry ->
-                        ProcessedEntryRow(entry = entry, accentColor = accentColor)
+                        ProcessedEntryRow(
+                            entry = entry,
+                            accentColor = accentColor,
+                            modifier = Modifier.padding(start = Dimens.SpacingLg),
+                        )
                     }
                 }
             }
@@ -147,9 +160,6 @@ fun CollectorGroupCard(
     }
 }
 
-/**
- * A compact row for a processed [TimelineEntry] within an expanded group card.
- */
 @Composable
 private fun ProcessedEntryRow(
     entry: TimelineEntry,
@@ -161,18 +171,23 @@ private fun ProcessedEntryRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingXxs),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .padding(end = Dimens.PaddingCard, top = Dimens.SpacingXs, bottom = Dimens.SpacingXs),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingSm),
     ) {
         Text(
             text = timeFormat.format(Date(entry.startTimestamp)),
             style = MaterialTheme.typography.labelSmall,
-            color = BlackBoxColors.TextMuted,
+            color = BlackBoxColors.TextTertiary,
+            modifier = Modifier.width(40.dp),
         )
-
-        Spacer(modifier = Modifier.width(Dimens.SpacingSm))
-
+        // Small dot connector
+        Box(
+            modifier = Modifier
+                .size(5.dp)
+                .clip(CircleShape)
+                .background(accentColor.copy(alpha = 0.6f)),
+        )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = entry.title,
@@ -183,30 +198,26 @@ private fun ProcessedEntryRow(
                 Text(
                     text = sub,
                     style = MaterialTheme.typography.labelSmall,
-                    color = BlackBoxColors.TextMuted,
+                    color = BlackBoxColors.TextTertiary,
                 )
             }
         }
     }
 }
 
-/**
- * Returns the cyberpunk accent colour assigned to the given [collectorType].
- *
- * `null` maps to the Derived Events group which uses NeonMagenta.
- */
+/** Maps a [CollectorType] to its Obsidian accent colour. */
 private fun accentColorFor(collectorType: CollectorType?): Color = when (collectorType) {
-    CollectorType.LOCATION -> BlackBoxColors.NeonGreen
-    CollectorType.ACTIVITY -> BlackBoxColors.ElectricCyan
-    null -> BlackBoxColors.NeonMagenta                    // Derived Events
-    CollectorType.WIFI -> Color(0xFFFFB300)               // Amber
-    CollectorType.CONNECTIVITY -> Color(0xFFFF6D00)       // Orange
-    CollectorType.BATTERY -> Color(0xFFFFE500)            // Yellow
-    CollectorType.SCREEN_STATE -> Color(0xFFCE93D8)       // Purple
-    CollectorType.APP_USAGE -> Color(0xFFFF80AB)          // Pink
-    CollectorType.AUDIO_LEVEL -> Color(0xFFFF1744)        // Red
-    CollectorType.BAROMETER -> Color(0xFF00E5FF)          // Teal
-    CollectorType.LIGHT -> Color(0xFFB0BEC5)              // Silver
-    CollectorType.CALL_LOG -> Color(0xFF69F0AE)           // Mint Green
-    CollectorType.MEDIA_PLAYBACK -> Color(0xFFEA80FC)     // Violet
+    CollectorType.LOCATION    -> BlackBoxColors.AccentLocation
+    CollectorType.ACTIVITY    -> BlackBoxColors.AccentActivity
+    null                      -> BlackBoxColors.AccentDerived
+    CollectorType.WIFI        -> BlackBoxColors.AccentWifi
+    CollectorType.CONNECTIVITY -> BlackBoxColors.AccentConnectivity
+    CollectorType.BATTERY     -> BlackBoxColors.AccentBattery
+    CollectorType.SCREEN_STATE -> BlackBoxColors.AccentScreen
+    CollectorType.APP_USAGE   -> BlackBoxColors.AccentAppUsage
+    CollectorType.AUDIO_LEVEL -> BlackBoxColors.AccentAudio
+    CollectorType.BAROMETER   -> BlackBoxColors.AccentBarometer
+    CollectorType.LIGHT       -> BlackBoxColors.AccentLight
+    CollectorType.CALL_LOG    -> BlackBoxColors.AccentCall
+    CollectorType.MEDIA_PLAYBACK -> BlackBoxColors.AccentMedia
 }

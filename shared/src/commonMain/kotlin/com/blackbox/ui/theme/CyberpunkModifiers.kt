@@ -6,192 +6,267 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
+
+// ── Card / surface modifiers ───────────────────────────────────────────────────
 
 /**
- * Applies a neon-colored border with a simulated outer glow halo.
+ * Applies the Obsidian card styling: surface background, subtle border,
+ * and the given corner radius. Use this on any card container.
  *
- * Draws three expanding, fading rectangles behind the composable to simulate
- * a soft neon glow, then adds a sharp [border] on top. This is a pure
- * Compose commonMain implementation that avoids Android-specific BlurMaskFilter.
- *
- * @param color The neon color for the border and glow.
- * @param borderWidth Thickness of the hard border line.
- * @param cornerRadius Corner rounding for both border and glow.
+ * @param cornerRadius Corner rounding. Defaults to [Dimens.RadiusMd] (16 dp).
+ * @param borderColor  Border colour. Defaults to [BlackBoxColors.Border].
+ * @param bgColor      Background fill. Defaults to [BlackBoxColors.Surface].
  */
-fun Modifier.neonBorder(
-    color: Color,
-    borderWidth: Dp = Dimens.NeonBorderWidth,
-    cornerRadius: Dp = 4.dp,
+fun Modifier.obsidianCard(
+    cornerRadius: Dp = 16.dp,
+    borderColor: Color = BlackBoxColors.Border,
+    bgColor: Color = BlackBoxColors.Surface,
 ): Modifier = this
-    .drawBehind {
-        // Simulate glow with 3 expanding semi-transparent rects
-        val expansions = listOf(8f to 0.08f, 5f to 0.12f, 3f to 0.18f)
-        for ((expand, alpha) in expansions) {
-            drawRoundRect(
-                color = color.copy(alpha = alpha),
-                topLeft = Offset(-expand, -expand),
-                size = Size(size.width + expand * 2, size.height + expand * 2),
-                cornerRadius = CornerRadius(cornerRadius.toPx() + expand),
-            )
-        }
-    }
-    .border(
-        width = borderWidth,
-        color = color,
-        shape = RoundedCornerShape(cornerRadius),
-    )
+    .background(bgColor, RoundedCornerShape(cornerRadius))
+    .border(1.dp, borderColor, RoundedCornerShape(cornerRadius))
 
 /**
- * Applies a subtle neon-tinted background fill for the card glow effect.
+ * Applies a subtle tinted border used for active/selected state or coloured card sections.
  *
- * @param color The neon color to use as a faint background tint.
+ * @param color        The accent colour for the border.
+ * @param cornerRadius Corner rounding.
+ * @param alpha        Opacity of the border line.
  */
-fun Modifier.neonGlowBackground(color: Color): Modifier = this.drawBehind {
-    drawRect(color = color)
+fun Modifier.accentBorder(
+    color: Color,
+    cornerRadius: Dp = 16.dp,
+    alpha: Float = 0.45f,
+): Modifier = this
+    .background(color.copy(alpha = 0.06f), RoundedCornerShape(cornerRadius))
+    .border(1.dp, color.copy(alpha = alpha), RoundedCornerShape(cornerRadius))
+
+// ── Accent bar (left vertical stripe) ─────────────────────────────────────────
+
+/**
+ * Draws a coloured vertical stripe on the left edge of the composable.
+ *
+ * Used to visually code cards by data category (location, activity, etc.)
+ * without adding heavy borders everywhere.
+ *
+ * @param color Stripe colour.
+ * @param width Stripe width in dp.
+ */
+fun Modifier.accentLeftBar(color: Color, width: Dp = 3.dp): Modifier = this.drawBehind {
+    drawRect(
+        color = color,
+        topLeft = Offset.Zero,
+        size = Size(width.toPx(), size.height),
+    )
 }
 
+// ── Shimmer loading effect ─────────────────────────────────────────────────────
+
 /**
- * Wraps [content] in an animated scan-line overlay.
+ * Applies a sweeping shimmer gradient to simulate a loading skeleton.
  *
- * A semi-transparent stripe sweeps top-to-bottom every 3 seconds,
- * providing the classic CRT/terminal ambiance. Uses only KMP-safe APIs.
- *
- * @param content The content to overlay with the scan line effect.
+ * The shimmer sweeps left-to-right using an infinite [animateFloat] transition.
+ * Drawn as a [Brush.linearGradient] using the [drawBehind] modifier so it is
+ * fully KMP-compatible (no BlurMaskFilter or Android-only APIs).
  */
 @Composable
-fun ScanLineOverlay(content: @Composable () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        content()
+fun Modifier.shimmer(): Modifier {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val translateX by transition.animateFloat(
+        initialValue = -600f,
+        targetValue = 1800f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "shimmer_x",
+    )
+    return this.drawBehind {
+        val shimmerColors = listOf(
+            BlackBoxColors.SurfaceVariant,
+            BlackBoxColors.SurfaceElevated,
+            BlackBoxColors.SurfaceVariant,
+        )
+        drawRect(
+            brush = Brush.linearGradient(
+                colors = shimmerColors,
+                start = Offset(translateX, 0f),
+                end = Offset(translateX + 600f, size.height),
+            ),
+        )
+    }
+}
 
-        val infiniteTransition = rememberInfiniteTransition(label = "scanline")
-        val scanY by infiniteTransition.animateFloat(
-            initialValue = 0f,
+// ── Loading indicator ──────────────────────────────────────────────────────────
+
+/**
+ * Three pulsing dots loading indicator.
+ *
+ * Each dot fades in/out with a slight phase offset for a wave effect.
+ * Uses only KMP-safe Compose APIs.
+ *
+ * @param color Dot colour.
+ * @param dotSize Diameter of each dot.
+ */
+@Composable
+fun PulseDotsIndicator(
+    color: Color = BlackBoxColors.Indigo,
+    dotSize: Dp = 8.dp,
+) {
+    val transition = rememberInfiniteTransition(label = "pulse_dots")
+
+    val delays = listOf(0, 200, 400)
+    val alphas = delays.map { delay ->
+        transition.animateFloat(
+            initialValue = 0.3f,
             targetValue = 1f,
             animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 3000, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
+                animation = tween(
+                    durationMillis = 600,
+                    delayMillis = delay,
+                    easing = LinearEasing,
+                ),
+                repeatMode = RepeatMode.Reverse,
             ),
-            label = "scanline_y",
+            label = "dot_alpha_$delay",
         )
+    }
 
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val stripeH = Dimens.ScanLineHeight.toPx() * 4
-            val y = scanY * size.height
-            drawRect(
-                color = Color(0x0800FF41), // ~3% neon green — very subtle
-                topLeft = Offset(0f, y),
-                size = Size(size.width, stripeH),
+    Row {
+        alphas.forEachIndexed { _, alphaState ->
+            val alpha by alphaState
+            Box(
+                modifier = Modifier
+                    .size(dotSize)
+                    .clip(CircleShape)
+                    .background(color.copy(alpha = alpha)),
             )
+            if (alphaState != alphas.last()) {
+                Box(modifier = Modifier.width(6.dp))
+            }
         }
     }
 }
 
+// ── Gradient helpers ───────────────────────────────────────────────────────────
+
 /**
- * A pulsing neon indicator — solid dot with an expanding ring.
+ * Returns an indigo→teal [Brush.linearGradient] for hero number text or chart fills.
  *
- * Continuously animates using [rememberInfiniteTransition].
- * Built entirely from KMP-safe Compose Canvas APIs.
+ * Pass this to [TextStyle.brush] or use in Canvas [drawBehind] calls.
+ */
+fun indigoTealGradient(): Brush = Brush.linearGradient(
+    colors = listOf(BlackBoxColors.IndigoLight, BlackBoxColors.TealLight),
+)
+
+/**
+ * Returns a top-fade gradient useful for chart bar fills:
+ * full [color] at the top, transparent at the bottom.
+ */
+fun barGradient(color: Color): Brush = Brush.verticalGradient(
+    colors = listOf(color, color.copy(alpha = 0.15f)),
+)
+
+// ── Pulse ring (for onboarding / ready state) ──────────────────────────────────
+
+/**
+ * A single animated expanding ring — used on the onboarding ready screen.
  *
- * @param color The neon color for the pulse and dot.
- * @param size Total bounding box size of the indicator.
+ * @param color Ring colour.
+ * @param size  Bounding box size.
  */
 @Composable
-fun NeonPulseIndicator(
-    color: Color,
-    size: Dp = 48.dp,
+fun PulseRingIndicator(
+    color: Color = BlackBoxColors.Indigo,
+    size: Dp = 80.dp,
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "neon_pulse")
-    val pulseRadius by infiniteTransition.animateFloat(
+    val transition = rememberInfiniteTransition(label = "ring_pulse")
+    val radius by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1200, easing = LinearEasing),
+            animation = tween(durationMillis = 1400, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         ),
-        label = "pulse_radius",
+        label = "ring_radius",
     )
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.8f,
+    val ringAlpha by transition.animateFloat(
+        initialValue = 0.7f,
         targetValue = 0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1200, easing = LinearEasing),
+            animation = tween(durationMillis = 1400, easing = LinearEasing),
             repeatMode = RepeatMode.Restart,
         ),
-        label = "pulse_alpha",
+        label = "ring_alpha",
     )
 
-    Canvas(modifier = Modifier.size(size)) {
+    androidx.compose.foundation.Canvas(modifier = Modifier.size(size)) {
         val center = Offset(this.size.width / 2f, this.size.height / 2f)
-        val maxRadius = this.size.minDimension / 2f
-        val dotRadius = maxRadius * 0.25f
+        val maxR = this.size.minDimension / 2f
+        val dotR = maxR * 0.28f
 
         // Expanding ring
         drawCircle(
-            color = color.copy(alpha = pulseAlpha),
-            radius = dotRadius + (maxRadius - dotRadius) * pulseRadius,
+            color = color.copy(alpha = ringAlpha),
+            radius = dotR + (maxR - dotR) * radius,
             center = center,
             style = Stroke(width = 2.dp.toPx()),
         )
-
-        // Solid dot center
+        // Solid centre dot
         drawCircle(
             color = color,
-            radius = dotRadius,
+            radius = dotR,
             center = center,
         )
     }
 }
 
-/**
- * Displays [text] with a blinking block cursor character appended.
- *
- * Toggles the cursor every 500ms to simulate a classic terminal cursor.
- *
- * @param text The text content to display before the cursor.
- * @param style The [TextStyle] applied to the text.
- * @param color The color applied to text and cursor.
- */
-@Composable
-fun BlinkingCursorText(
-    text: String,
-    style: TextStyle,
+// ── Backward-compat stubs ──────────────────────────────────────────────────────
+// These keep legacy call sites compiling while the screen rewrites are in progress.
+
+/** @deprecated Use obsidianCard() instead. */
+fun Modifier.neonBorder(
     color: Color,
-) {
-    var showCursor by remember { mutableStateOf(true) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(500)
-            showCursor = !showCursor
-        }
-    }
-    val cursor = if (showCursor) "▮" else " "
-    Text(
-        text = "$text$cursor",
-        style = style,
-        color = color,
-    )
+    borderWidth: Dp = 1.dp,
+    cornerRadius: Dp = 16.dp,
+): Modifier = this
+    .background(BlackBoxColors.Surface, RoundedCornerShape(cornerRadius))
+    .border(borderWidth, color.copy(alpha = 0.4f), RoundedCornerShape(cornerRadius))
+
+/** @deprecated No-op in Obsidian theme. */
+fun Modifier.neonGlowBackground(color: Color): Modifier = this
+
+/** @deprecated Removed — no scan lines in Obsidian theme. */
+@Composable
+fun ScanLineOverlay(content: @Composable () -> Unit) = content()
+
+/** @deprecated Use PulseRingIndicator instead. */
+@Composable
+fun NeonPulseIndicator(color: Color, size: Dp = 48.dp) = PulseRingIndicator(color = color, size = size)
+
+/** @deprecated Removed — no blinking cursors in Obsidian theme. */
+@Composable
+fun BlinkingCursorText(text: String, style: androidx.compose.ui.text.TextStyle, color: Color) {
+    androidx.compose.material3.Text(text = text, style = style, color = color)
 }

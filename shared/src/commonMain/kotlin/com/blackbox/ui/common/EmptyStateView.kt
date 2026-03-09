@@ -20,23 +20,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.blackbox.ui.theme.BlackBoxColors
 import com.blackbox.ui.theme.BlackBoxTheme
 import com.blackbox.ui.theme.Dimens
-import com.blackbox.ui.theme.neonBorder
+import com.blackbox.ui.theme.obsidianCard
 
 /**
- * Terminal-style empty state view with neon border.
+ * Full-screen empty state with icon, title, message, and optional action button.
  *
- * Displays a centered icon, "NO DATA FOUND" title, descriptive message,
- * and an optional call-to-action button inside a neon-bordered dark card.
- *
- * @param title The empty state title (e.g., "NO DATA FOUND").
- * @param message The context-specific description explaining why there is no data.
- * @param modifier Optional [Modifier] for the container.
- * @param actionLabel Optional label for the CTA button.
- * @param onAction Optional callback for the CTA button. If null, the button is hidden.
+ * @param title       Short empty-state heading.
+ * @param message     Explanation of why data is absent.
+ * @param modifier    Optional [Modifier].
+ * @param actionLabel Optional CTA button label.
+ * @param onAction    Optional CTA callback. Button hidden when null.
  */
 @Composable
 fun EmptyStateView(
@@ -57,22 +53,22 @@ fun EmptyStateView(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxWidth()
-                .neonBorder(color = BlackBoxColors.OutlineNeon, cornerRadius = 4.dp)
-                .padding(Dimens.PaddingCard),
+                .obsidianCard(cornerRadius = Dimens.RadiusMd)
+                .padding(Dimens.SpacingXxl),
         ) {
             Icon(
                 imageVector = Icons.Default.Info,
                 contentDescription = null,
                 modifier = Modifier.size(Dimens.IconXl),
-                tint = BlackBoxColors.TextMuted,
+                tint = BlackBoxColors.TextTertiary,
             )
 
             Spacer(modifier = Modifier.height(Dimens.SpacingLg))
 
             Text(
-                text = title.uppercase(),
-                style = MaterialTheme.typography.labelLarge,
-                color = BlackBoxColors.TextMuted,
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = BlackBoxColors.TextSecondary,
             )
 
             Spacer(modifier = Modifier.height(Dimens.SpacingSm))
@@ -80,7 +76,7 @@ fun EmptyStateView(
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
-                color = BlackBoxColors.TextMuted,
+                color = BlackBoxColors.TextTertiary,
                 textAlign = TextAlign.Center,
             )
 
@@ -90,8 +86,8 @@ fun EmptyStateView(
                 Button(
                     onClick = onAction,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = BlackBoxColors.NeonGreen,
-                        contentColor = BlackBoxColors.TextOnNeon,
+                        containerColor = BlackBoxColors.Indigo,
+                        contentColor = BlackBoxColors.OnAccent,
                     ),
                 ) {
                     Text(text = actionLabel)
@@ -106,7 +102,7 @@ fun EmptyStateView(
 private fun EmptyStateViewPreview() {
     BlackBoxTheme {
         EmptyStateView(
-            title = "No Data Yet",
+            title = "No data yet",
             message = "BlackBox hasn't collected any data yet. Check back later.",
         )
     }
@@ -117,9 +113,9 @@ private fun EmptyStateViewPreview() {
 private fun EmptyStateViewWithActionPreview() {
     BlackBoxTheme {
         EmptyStateView(
-            title = "No Data Yet",
+            title = "Nothing here",
             message = "Start recording to see your data here.",
-            actionLabel = "Start Recording",
+            actionLabel = "Get started",
             onAction = {},
         )
     }

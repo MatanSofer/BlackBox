@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -28,6 +29,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -39,7 +42,7 @@ import com.blackbox.ui.common.LoadingIndicator
 import com.blackbox.ui.theme.BlackBoxColors
 import com.blackbox.ui.theme.BlackBoxTheme
 import com.blackbox.ui.theme.Dimens
-import com.blackbox.ui.theme.neonBorder
+import com.blackbox.ui.theme.obsidianCard
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -51,9 +54,9 @@ import java.util.Locale
  * and the date bar + bottom panel are declared *after* the map in the
  * composition. In Compose 1.5+, [AndroidView] is composited into the Compose
  * GraphicsLayer tree, so content declared later in the same [Box] draws on top
- * of the Android View — this is the same pattern used by the Maps Compose SDK.
+ * of the Android View.
  *
- * @param state Current UI state from the ViewModel.
+ * @param state    Current UI state from the ViewModel.
  * @param onAction Callback to dispatch user actions.
  * @param modifier Optional [Modifier] for the container.
  */
@@ -68,7 +71,7 @@ fun MapContent(
             .fillMaxSize()
             .background(BlackBoxColors.Background),
     ) {
-        // ── Layer 1: map or placeholder (fills entire box) ─────────────────
+        // ── Layer 1: map or placeholder ─────────────────────────────────────
         when {
             state.isLoading -> LoadingIndicator()
 
@@ -90,9 +93,7 @@ fun MapContent(
             )
         }
 
-        // ── Layer 2: controls overlay (declared after map → drawn on top) ──
-        // MapDateBar at the top, MapBottomPanel pinned to the bottom.
-        // Both have opaque Surface backgrounds so they're readable over tiles.
+        // ── Layer 2: controls overlay (drawn on top of map) ─────────────────
         Column(modifier = Modifier.fillMaxSize()) {
             MapDateBar(
                 selectedDate = state.selectedDate,
@@ -122,7 +123,16 @@ private fun MapDateBar(
         modifier = modifier
             .fillMaxWidth()
             .background(BlackBoxColors.Surface)
-            .padding(horizontal = Dimens.PaddingScreen, vertical = Dimens.SpacingSm),
+            .drawBehind {
+                // Bottom separator line
+                drawLine(
+                    color = BlackBoxColors.Border,
+                    start = Offset(0f, size.height),
+                    end = Offset(size.width, size.height),
+                    strokeWidth = 1.dp.toPx(),
+                )
+            }
+            .padding(horizontal = Dimens.PaddingScreen, vertical = Dimens.SpacingXs),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -130,27 +140,27 @@ private fun MapDateBar(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                 contentDescription = "Previous day",
-                tint = BlackBoxColors.NeonGreen,
+                tint = BlackBoxColors.TextSecondary,
             )
         }
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .neonBorder(color = BlackBoxColors.OutlineNeon, cornerRadius = 2.dp)
+                .background(BlackBoxColors.SurfaceVariant, RoundedCornerShape(Dimens.RadiusFull))
                 .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingXs),
         ) {
             Icon(
                 imageVector = Icons.Default.DateRange,
                 contentDescription = null,
                 modifier = Modifier.size(Dimens.IconSm),
-                tint = BlackBoxColors.NeonGreen,
+                tint = BlackBoxColors.Indigo,
             )
             Spacer(Modifier.width(Dimens.SpacingXs))
             Text(
                 text = formatDateLabel(selectedDate),
-                style = MaterialTheme.typography.titleMedium,
-                color = BlackBoxColors.NeonGreen,
+                style = MaterialTheme.typography.labelLarge,
+                color = BlackBoxColors.TextPrimary,
             )
         }
 
@@ -158,7 +168,7 @@ private fun MapDateBar(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = "Next day",
-                tint = BlackBoxColors.NeonGreen,
+                tint = BlackBoxColors.TextSecondary,
             )
         }
     }
@@ -176,7 +186,16 @@ private fun MapBottomPanel(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(BlackBoxColors.Surface),
+            .background(BlackBoxColors.Surface)
+            .drawBehind {
+                // Top separator line
+                drawLine(
+                    color = BlackBoxColors.Border,
+                    start = Offset(0f, 0f),
+                    end = Offset(size.width, 0f),
+                    strokeWidth = 1.dp.toPx(),
+                )
+            },
     ) {
         AnimatedVisibility(
             visible = selectedStay != null && summary != null,
@@ -214,20 +233,20 @@ private fun SummaryStrip(
     ) {
         SummaryChip(
             label = if (summary != null) "${summary.stays.size}" else "—",
-            sublabel = "STOPS",
-            color = BlackBoxColors.NeonGreen,
+            sublabel = "Stops",
+            color = BlackBoxColors.Indigo,
         )
         SummaryChip(
             label = if (summary != null) formatDistance(summary.totalDistanceMeters) else "—",
-            sublabel = "DISTANCE",
-            color = BlackBoxColors.ElectricCyan,
+            sublabel = "Distance",
+            color = BlackBoxColors.Teal,
         )
         SummaryChip(
             label = if (summary?.firstFixTime != null && summary.lastFixTime != null)
                 "${fmtTime(summary.firstFixTime)} – ${fmtTime(summary.lastFixTime)}"
             else "—",
-            sublabel = "TIME RANGE",
-            color = BlackBoxColors.TextMuted,
+            sublabel = "Time range",
+            color = BlackBoxColors.TextSecondary,
         )
     }
 }
@@ -242,13 +261,13 @@ private fun SummaryChip(
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = label,
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
             color = color,
         )
         Text(
             text = sublabel,
             style = MaterialTheme.typography.labelSmall,
-            color = BlackBoxColors.TextMuted,
+            color = BlackBoxColors.TextTertiary,
         )
     }
 }
@@ -272,7 +291,8 @@ private fun StayDetailCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .neonBorder(color = BlackBoxColors.NeonMagenta, cornerRadius = 0.dp)
+            .padding(horizontal = Dimens.PaddingScreen, vertical = Dimens.SpacingSm)
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
             .padding(Dimens.PaddingCard),
     ) {
         Row(
@@ -282,7 +302,7 @@ private fun StayDetailCard(
             Icon(
                 imageVector = Icons.Default.LocationOn,
                 contentDescription = null,
-                tint = BlackBoxColors.NeonMagenta,
+                tint = BlackBoxColors.AccentLocation,
                 modifier = Modifier.size(Dimens.IconMd),
             )
             Spacer(Modifier.width(Dimens.SpacingXs))
@@ -297,17 +317,17 @@ private fun StayDetailCard(
             Text(
                 text = "$stopIndex / $totalStops",
                 style = MaterialTheme.typography.labelSmall,
-                color = BlackBoxColors.NeonGreen,
+                color = BlackBoxColors.IndigoLight,
                 modifier = Modifier
-                    .neonBorder(color = BlackBoxColors.OutlineNeon, cornerRadius = 2.dp)
-                    .padding(horizontal = Dimens.SpacingXs, vertical = 2.dp),
+                    .background(BlackBoxColors.IndigoDim, RoundedCornerShape(Dimens.RadiusFull))
+                    .padding(horizontal = Dimens.SpacingSm, vertical = 2.dp),
             )
             Spacer(Modifier.width(Dimens.SpacingXs))
             IconButton(onClick = onDismiss, modifier = Modifier.size(Dimens.IconMd)) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Dismiss",
-                    tint = BlackBoxColors.TextMuted,
+                    tint = BlackBoxColors.TextTertiary,
                 )
             }
         }
@@ -315,22 +335,22 @@ private fun StayDetailCard(
         Spacer(Modifier.height(Dimens.SpacingXs))
 
         DetailRow(
-            left = "ARRIVED", leftValue = fmtTime(stay.arrivalTime),
-            right = "DEPARTED", rightValue = fmtTime(stay.departureTime),
+            left = "Arrived", leftValue = fmtTime(stay.arrivalTime),
+            right = "Departed", rightValue = fmtTime(stay.departureTime),
         )
         DetailRow(
-            left = "DURATION", leftValue = formatDuration(stay.durationMs),
-            right = "GPS FIXES", rightValue = "${stay.pointCount}",
+            left = "Duration", leftValue = formatDuration(stay.durationMs),
+            right = "GPS fixes", rightValue = "${stay.pointCount}",
         )
         stay.averageAccuracyMeters?.let { acc ->
             DetailRow(
-                left = "AVG ACCURACY", leftValue = "±${acc.toInt()}m",
-                right = "CATEGORY", rightValue = stay.knownPlace?.category?.name ?: "UNKNOWN",
+                left = "Avg accuracy", leftValue = "±${acc.toInt()}m",
+                right = "Category", rightValue = stay.knownPlace?.category?.name ?: "Unknown",
             )
         }
         DetailRow(
-            left = "LAT", leftValue = "%.6f".format(stay.latitude),
-            right = "LNG", rightValue = "%.6f".format(stay.longitude),
+            left = "Lat", leftValue = "%.6f".format(stay.latitude),
+            right = "Lng", rightValue = "%.6f".format(stay.longitude),
         )
     }
 }
@@ -357,8 +377,16 @@ private fun DetailRow(
 @Composable
 private fun DetailCell(label: String, value: String, modifier: Modifier = Modifier) {
     Column(modifier = modifier) {
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = BlackBoxColors.TextMuted)
-        Text(text = value, style = MaterialTheme.typography.bodySmall, color = BlackBoxColors.ElectricCyan)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = BlackBoxColors.TextTertiary,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            color = BlackBoxColors.Teal,
+        )
     }
 }
 

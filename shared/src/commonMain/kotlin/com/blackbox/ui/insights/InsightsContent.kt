@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,10 +17,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,11 +30,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.blackbox.domain.repository.DailyScreenTime
 import com.blackbox.domain.repository.DailyStepCount
 import com.blackbox.domain.usecase.insight.AppUsageStat
@@ -43,22 +46,21 @@ import com.blackbox.ui.common.ErrorView
 import com.blackbox.ui.theme.BlackBoxColors
 import com.blackbox.ui.theme.BlackBoxTheme
 import com.blackbox.ui.theme.Dimens
-import com.blackbox.ui.theme.neonBorder
+import com.blackbox.ui.theme.PulseDotsIndicator
+import com.blackbox.ui.theme.barGradient
+import com.blackbox.ui.theme.indigoTealGradient
+import com.blackbox.ui.theme.obsidianCard
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
 /**
- * Pure UI content for the Insights screen — "Intel Briefing".
+ * Pure UI content for the Insights screen — personal data dashboard.
  *
- * A scrollable briefing card feed structured in four sections:
- * 1. **TODAY** — live stats for the current day.
- * 2. **THIS WEEK** — 7-day step/screen charts + top places & apps.
- * 3. **OBSERVATIONS** — LLM-generated or rule-based insight sentences.
- * 4. **RECORDS** — personal bests and weekly averages.
+ * Sections: TODAY hero stats · WEEK charts · TOP PLACES & APPS · AI OBSERVATIONS.
  *
- * @param state Current UI state from the ViewModel.
+ * @param state    Current UI state from the ViewModel.
  * @param onAction Callback to dispatch user actions.
  * @param modifier Optional [Modifier] for the root container.
  */
@@ -69,67 +71,76 @@ fun InsightsContent(
     modifier: Modifier = Modifier,
 ) {
     when {
-        state.isLoadingData -> LoadingBriefing()
+        state.isLoadingData -> LoadingInsights(modifier = modifier)
         state.error != null -> ErrorView(
             message = state.error,
             onRetry = { onAction(InsightsContract.Action.Refresh) },
             modifier = modifier,
         )
-        else -> BriefingFeed(state = state, onAction = onAction, modifier = modifier)
+        else -> InsightsFeed(state = state, modifier = modifier)
     }
 }
 
-// ── Loading state ─────────────────────────────────────────────────────────────
+// ── Loading state ──────────────────────────────────────────────────────────────
 
 @Composable
-private fun LoadingBriefing(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "briefing_pulse")
-    val alpha by transition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.8f,
-        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Reverse),
-        label = "alpha",
-    )
+private fun LoadingInsights(modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            text = "LOADING INTEL...",
-            style = MaterialTheme.typography.labelLarge,
-            color = BlackBoxColors.NeonGreen.copy(alpha = alpha),
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            PulseDotsIndicator(color = BlackBoxColors.Indigo)
+            Spacer(modifier = Modifier.height(Dimens.SpacingMd))
+            Text(
+                text = "Loading insights...",
+                style = MaterialTheme.typography.bodySmall,
+                color = BlackBoxColors.TextTertiary,
+            )
+        }
     }
 }
 
 // ── Main feed ─────────────────────────────────────────────────────────────────
 
 @Composable
-private fun BriefingFeed(
+private fun InsightsFeed(
     state: InsightsContract.State,
-    onAction: (InsightsContract.Action) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val brief = state.brief ?: return
+    val dateLabel = SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(Date())
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = Dimens.PaddingScreen),
-        verticalArrangement = Arrangement.spacedBy(Dimens.SpacingSm),
+        verticalArrangement = Arrangement.spacedBy(Dimens.SpacingMd),
     ) {
-        // ── Header ───────────────────────────────────────────────────────────
+        // Header
         item {
-            Spacer(modifier = Modifier.height(Dimens.SpacingXs))
-            BriefingHeader()
+            Spacer(modifier = Modifier.height(Dimens.SpacingLg))
+            Text(
+                text = "Insights",
+                style = MaterialTheme.typography.headlineSmall,
+                color = BlackBoxColors.TextPrimary,
+            )
+            Text(
+                text = dateLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = BlackBoxColors.TextTertiary,
+                modifier = Modifier.padding(top = 2.dp),
+            )
         }
 
-        // ── Section 1: Today ─────────────────────────────────────────────────
-        item { SectionDivider(label = "TODAY") }
-        item { TodayCard(brief = brief) }
+        // Today hero
+        item { TodayHeroCard(brief = brief) }
 
-        // ── Section 2: This Week ──────────────────────────────────────────────
-        item { SectionDivider(label = "THIS WEEK") }
-        item { StepTrendCard(trend = brief.weekStepTrend, avgSteps = brief.avgDailySteps) }
-        item { ScreenTrendCard(trend = brief.weekScreenTrend, avgMinutes = brief.avgDailyScreenMinutes) }
+        // Week charts
+        item {
+            SectionLabel(text = "This week")
+        }
+        item { StepTrendCard(trend = brief.weekStepTrend, avg = brief.avgDailySteps) }
+        item { ScreenTrendCard(trend = brief.weekScreenTrend, avg = brief.avgDailyScreenMinutes) }
 
+        // Top places + apps
         if (brief.weekTopPlaces.isNotEmpty() || brief.weekTopApps.isNotEmpty()) {
             item {
                 Row(
@@ -137,14 +148,22 @@ private fun BriefingFeed(
                     horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingSm),
                 ) {
                     if (brief.weekTopPlaces.isNotEmpty()) {
-                        TopPlacesCard(
-                            places = brief.weekTopPlaces,
+                        TopListCard(
+                            title = "Top places",
+                            accentColor = BlackBoxColors.Rose,
+                            items = brief.weekTopPlaces.take(4).map {
+                                it.address.trim().split(",").first().trim() to "${it.visitCount}d"
+                            },
                             modifier = Modifier.weight(1f),
                         )
                     }
                     if (brief.weekTopApps.isNotEmpty()) {
-                        TopAppsCard(
-                            apps = brief.weekTopApps,
+                        TopListCard(
+                            title = "Top apps",
+                            accentColor = BlackBoxColors.Teal,
+                            items = brief.weekTopApps.take(4).map {
+                                it.displayName to formatMinutesShort(it.totalMinutes.toInt())
+                            },
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -152,193 +171,162 @@ private fun BriefingFeed(
             }
         }
 
-        // ── Section 3: Observations ───────────────────────────────────────────
-        item { SectionDivider(label = "OBSERVATIONS") }
+        // Observations
+        item { SectionLabel(text = "Observations") }
 
         when {
             state.isLoadingObservations -> item { ObservationsLoadingCard() }
             state.observations.isEmpty() -> item {
-                ObservationCard(text = "No observations yet — check back after a few days of data.")
+                Text(
+                    text = "No observations yet — check back after a few days of data.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = BlackBoxColors.TextTertiary,
+                    modifier = Modifier.padding(vertical = Dimens.SpacingXs),
+                )
             }
             else -> items(state.observations) { obs ->
                 ObservationCard(text = obs)
             }
         }
 
-        // ── Section 4: Records ────────────────────────────────────────────────
-        item { SectionDivider(label = "RECORDS") }
-        item { RecordsCard(brief = brief) }
-
-        item { Spacer(modifier = Modifier.height(Dimens.SpacingXl)) }
-    }
-}
-
-// ── Header ────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun BriefingHeader(modifier: Modifier = Modifier) {
-    val dateLabel = SimpleDateFormat("EEE, dd MMM", Locale.getDefault())
-        .format(Date()).uppercase(Locale.getDefault())
-
-    Column(modifier = modifier) {
-        Text(
-            text = "INTEL BRIEFING",
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-            color = BlackBoxColors.NeonGreen,
-        )
-        Text(
-            text = dateLabel,
-            style = MaterialTheme.typography.labelMedium,
-            color = BlackBoxColors.TextMuted,
-        )
-    }
-}
-
-// ── Section divider ───────────────────────────────────────────────────────────
-
-@Composable
-private fun SectionDivider(label: String, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = Dimens.SpacingXs),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingSm),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-            color = BlackBoxColors.TextMuted,
-        )
-        Canvas(modifier = Modifier.weight(1f).height(1.dp)) {
-            drawLine(
-                color = BlackBoxColors.OutlineNeon,
-                start = Offset(0f, size.height / 2f),
-                end = Offset(size.width, size.height / 2f),
-                strokeWidth = 1.dp.toPx(),
-            )
+        // Averages footer
+        item {
+            SectionLabel(text = "Averages")
+            AveragesCard(brief = brief)
         }
+
+        item { Spacer(modifier = Modifier.height(Dimens.SpacingXxl)) }
     }
 }
 
-// ── Today card ────────────────────────────────────────────────────────────────
+// ── Today hero card ───────────────────────────────────────────────────────────
 
 @Composable
-private fun TodayCard(brief: InsightsBrief, modifier: Modifier = Modifier) {
+private fun TodayHeroCard(brief: InsightsBrief, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .neonBorder(BlackBoxColors.OutlineNeon, 1.dp)
+            .obsidianCard(cornerRadius = Dimens.RadiusMd, bgColor = BlackBoxColors.SurfaceVariant)
             .padding(Dimens.PaddingCard),
-        verticalArrangement = Arrangement.spacedBy(Dimens.SpacingXs),
     ) {
-        // Steps row
-        TodayStatRow(
-            label = "STEPS",
-            value = brief.todaySteps.formatK(),
-            valueColor = BlackBoxColors.NeonGreen,
-            badge = stepsComparisonBadge(brief.todayStepsVsAvg),
-            badgeColor = if (brief.todayStepsVsAvg >= 1f) BlackBoxColors.NeonGreen else BlackBoxColors.NeonMagenta,
-        )
-        // Screen time row
-        TodayStatRow(
-            label = "SCREEN",
-            value = formatMinutes(brief.todayScreenMinutes),
-            valueColor = BlackBoxColors.ElectricCyan,
-        )
-        // Places row
-        TodayStatRow(
-            label = "PLACES",
-            value = "${brief.todayPlacesCount} visited",
-            valueColor = BlackBoxColors.NeonMagenta,
-        )
-        // Top app row
-        brief.todayTopApp?.let { app ->
-            TodayStatRow(
-                label = "TOP APP",
-                value = app.displayName,
-                valueColor = BlackBoxColors.TextPrimary,
+        // Steps — hero number with gradient
+        val stepBadge = stepsComparisonBadge(brief.todayStepsVsAvg)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column {
+                Text(
+                    text = brief.todaySteps.formatK(),
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        brush = indigoTealGradient(),
+                    ),
+                )
+                Text(
+                    text = "steps today",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = BlackBoxColors.TextTertiary,
+                )
+            }
+            if (stepBadge != null) {
+                val isPositive = brief.todayStepsVsAvg >= 1f
+                Text(
+                    text = stepBadge,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = if (isPositive) BlackBoxColors.Success else BlackBoxColors.Error,
+                    modifier = Modifier
+                        .background(
+                            if (isPositive) BlackBoxColors.Success.copy(alpha = 0.12f)
+                            else BlackBoxColors.Error.copy(alpha = 0.12f),
+                            RoundedCornerShape(Dimens.RadiusFull),
+                        )
+                        .padding(horizontal = Dimens.SpacingSm, vertical = Dimens.SpacingXxs),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(Dimens.SpacingMd))
+
+        // Three small stats
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingSm),
+        ) {
+            SmallStatCard(
+                label = "Screen",
+                value = formatMinutes(brief.todayScreenMinutes),
+                color = BlackBoxColors.Teal,
+                modifier = Modifier.weight(1f),
             )
+            SmallStatCard(
+                label = "Places",
+                value = "${brief.todayPlacesCount}",
+                color = BlackBoxColors.Rose,
+                modifier = Modifier.weight(1f),
+            )
+            brief.todayTopApp?.let { app ->
+                SmallStatCard(
+                    label = "Top app",
+                    value = app.displayName,
+                    color = BlackBoxColors.IndigoLight,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun TodayStatRow(
+private fun SmallStatCard(
     label: String,
     value: String,
-    valueColor: Color,
-    badge: String? = null,
-    badgeColor: Color = BlackBoxColors.NeonGreen,
+    color: Color,
+    modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        modifier = modifier
+            .background(BlackBoxColors.SurfaceElevated, RoundedCornerShape(Dimens.RadiusSm))
+            .padding(horizontal = Dimens.SpacingSm, vertical = Dimens.SpacingXs),
     ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = BlackBoxColors.TextMuted,
-            modifier = Modifier.width(60.dp),
+            color = BlackBoxColors.TextTertiary,
         )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-            color = valueColor,
-            modifier = Modifier.weight(1f),
-        )
-        badge?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.labelSmall,
-                color = badgeColor,
-            )
-        }
     }
 }
 
-private fun stepsComparisonBadge(ratio: Float): String? {
-    val pct = ((ratio - 1f) * 100).toInt()
-    return when {
-        pct >= 5 -> "▲ +${pct}%"
-        pct <= -5 -> "▼ ${pct}%"
-        else -> null
-    }
-}
-
-// ── Bar trend cards ───────────────────────────────────────────────────────────
+// ── Trend cards ───────────────────────────────────────────────────────────────
 
 @Composable
-private fun StepTrendCard(
-    trend: List<DailyStepCount>,
-    avgSteps: Int,
-    modifier: Modifier = Modifier,
-) {
+private fun StepTrendCard(trend: List<DailyStepCount>, avg: Int, modifier: Modifier = Modifier) {
     TrendCard(
-        title = "STEPS / DAY",
-        subtitle = "avg ${avgSteps.formatK()}/day",
-        subtitleColor = BlackBoxColors.NeonGreen,
-        barColor = BlackBoxColors.NeonGreen,
+        title = "Steps",
+        subtitle = "avg ${avg.formatK()}/day",
         barValues = trend.map { it.steps.toFloat() },
         barLabels = trend.map { it.date.dayAbbrev() },
+        barColor = BlackBoxColors.Indigo,
         modifier = modifier,
     )
 }
 
 @Composable
-private fun ScreenTrendCard(
-    trend: List<DailyScreenTime>,
-    avgMinutes: Int,
-    modifier: Modifier = Modifier,
-) {
+private fun ScreenTrendCard(trend: List<DailyScreenTime>, avg: Int, modifier: Modifier = Modifier) {
     TrendCard(
-        title = "SCREEN / DAY",
-        subtitle = "avg ${formatMinutes(avgMinutes)}/day",
-        subtitleColor = BlackBoxColors.ElectricCyan,
-        barColor = BlackBoxColors.ElectricCyan,
+        title = "Screen time",
+        subtitle = "avg ${formatMinutes(avg)}/day",
         barValues = trend.map { it.totalMinutes.toFloat() },
         barLabels = trend.map { it.date.dayAbbrev() },
+        barColor = BlackBoxColors.Teal,
         modifier = modifier,
     )
 }
@@ -347,16 +335,15 @@ private fun ScreenTrendCard(
 private fun TrendCard(
     title: String,
     subtitle: String,
-    subtitleColor: Color,
-    barColor: Color,
     barValues: List<Float>,
     barLabels: List<String>,
+    barColor: Color,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .neonBorder(BlackBoxColors.OutlineNeon, 1.dp)
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
             .padding(Dimens.PaddingCard),
         verticalArrangement = Arrangement.spacedBy(Dimens.SpacingXs),
     ) {
@@ -367,47 +354,46 @@ private fun TrendCard(
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                color = BlackBoxColors.TextMuted,
+                style = MaterialTheme.typography.titleSmall,
+                color = BlackBoxColors.TextPrimary,
             )
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = subtitleColor,
+                style = MaterialTheme.typography.labelMedium,
+                color = barColor,
             )
         }
 
         if (barValues.isEmpty()) {
             Text(
                 text = "No data yet",
-                style = MaterialTheme.typography.labelSmall,
-                color = BlackBoxColors.TextMuted,
-                modifier = Modifier.padding(vertical = Dimens.SpacingXs),
+                style = MaterialTheme.typography.bodySmall,
+                color = BlackBoxColors.TextTertiary,
             )
         } else {
-            MiniBarChart(
+            GradientBarChart(
                 values = barValues,
                 labels = barLabels,
                 barColor = barColor,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp),
+                    .height(72.dp),
             )
         }
     }
 }
 
 @Composable
-private fun MiniBarChart(
+private fun GradientBarChart(
     values: List<Float>,
     labels: List<String>,
     barColor: Color,
     modifier: Modifier = Modifier,
 ) {
     val max = values.maxOrNull()?.coerceAtLeast(1f) ?: 1f
+    val gradient = barGradient(barColor)
 
     Column(modifier = modifier) {
-        // Bars
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
@@ -415,26 +401,27 @@ private fun MiniBarChart(
         ) {
             if (values.isEmpty()) return@Canvas
             val count = values.size
-            val totalGap = 4.dp.toPx() * (count - 1)
-            val barWidth = (size.width - totalGap) / count
-            val corner = CornerRadius(2.dp.toPx())
+            val gap = 4.dp.toPx()
+            val totalGaps = gap * (count - 1)
+            val barWidth = (size.width - totalGaps) / count
+            val corner = CornerRadius(4.dp.toPx())
 
             values.forEachIndexed { i, value ->
                 val ratio = value / max
                 val barHeight = (size.height * ratio).coerceAtLeast(2.dp.toPx())
-                val x = i * (barWidth + 4.dp.toPx())
+                val x = i * (barWidth + gap)
                 val y = size.height - barHeight
 
-                // Dim background track
+                // Track (background bar)
                 drawRoundRect(
-                    color = BlackBoxColors.SurfaceVariant,
+                    color = BlackBoxColors.SurfaceElevated,
                     topLeft = Offset(x, 0f),
                     size = Size(barWidth, size.height),
                     cornerRadius = corner,
                 )
-                // Foreground value bar
+                // Gradient fill
                 drawRoundRect(
-                    color = barColor.copy(alpha = 0.85f),
+                    brush = gradient,
                     topLeft = Offset(x, y),
                     size = Size(barWidth, barHeight),
                     cornerRadius = corner,
@@ -442,7 +429,6 @@ private fun MiniBarChart(
             }
         }
 
-        // Day labels
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -450,124 +436,85 @@ private fun MiniBarChart(
             labels.forEach { label ->
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = BlackBoxColors.TextMuted,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = BlackBoxColors.TextTertiary,
                 )
             }
         }
     }
 }
 
-// ── Top places card ───────────────────────────────────────────────────────────
+// ── Top list card ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun TopPlacesCard(places: List<PlaceVisit>, modifier: Modifier = Modifier) {
+private fun TopListCard(
+    title: String,
+    accentColor: Color,
+    items: List<Pair<String, String>>,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier
-            .neonBorder(BlackBoxColors.OutlineNeon, 1.dp)
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
             .padding(Dimens.PaddingCard),
         verticalArrangement = Arrangement.spacedBy(Dimens.SpacingXs),
     ) {
         Text(
-            text = "TOP PLACES",
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-            color = BlackBoxColors.TextMuted,
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = BlackBoxColors.TextPrimary,
+            modifier = Modifier.padding(bottom = 2.dp),
         )
-        places.take(4).forEachIndexed { index, place ->
+        items.forEachIndexed { index, (name, value) ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    text = "${index + 1}.",
+                    text = "${index + 1}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = BlackBoxColors.TextMuted,
-                    modifier = Modifier.width(14.dp),
+                    color = BlackBoxColors.TextTertiary,
+                    modifier = Modifier.width(12.dp),
                 )
                 Text(
-                    text = place.address.trim().split(",").first().trim(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = BlackBoxColors.NeonMagenta,
+                    text = name,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = accentColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    text = "${place.visitCount}d",
+                    text = value,
                     style = MaterialTheme.typography.labelSmall,
-                    color = BlackBoxColors.TextMuted,
+                    color = BlackBoxColors.TextTertiary,
                 )
             }
         }
     }
 }
 
-// ── Top apps card ─────────────────────────────────────────────────────────────
-
-@Composable
-private fun TopAppsCard(apps: List<AppUsageStat>, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .neonBorder(BlackBoxColors.OutlineNeon, 1.dp)
-            .padding(Dimens.PaddingCard),
-        verticalArrangement = Arrangement.spacedBy(Dimens.SpacingXs),
-    ) {
-        Text(
-            text = "TOP APPS",
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-            color = BlackBoxColors.TextMuted,
-        )
-        apps.take(4).forEachIndexed { index, app ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "${index + 1}.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = BlackBoxColors.TextMuted,
-                    modifier = Modifier.width(14.dp),
-                )
-                Text(
-                    text = app.displayName,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = BlackBoxColors.ElectricCyan,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = formatMinutesShort(app.totalMinutes.toInt()),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = BlackBoxColors.TextMuted,
-                )
-            }
-        }
-    }
-}
-
-// ── Observation cards ─────────────────────────────────────────────────────────
+// ── Observations ──────────────────────────────────────────────────────────────
 
 @Composable
 private fun ObservationCard(text: String, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .neonBorder(BlackBoxColors.NeonGreen.copy(alpha = 0.4f), 1.dp)
-            .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingSm),
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
+            .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingMd),
         horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingSm),
         verticalAlignment = Alignment.Top,
     ) {
         Text(
-            text = "⚡",
-            style = MaterialTheme.typography.bodySmall,
+            text = "✦",
+            style = MaterialTheme.typography.bodySmall.copy(color = BlackBoxColors.IndigoLight),
         )
         Text(
             text = text,
-            style = MaterialTheme.typography.bodySmall,
-            color = BlackBoxColors.TextPrimary,
+            style = MaterialTheme.typography.bodyMedium,
+            color = BlackBoxColors.TextSecondary,
         )
     }
 }
@@ -576,66 +523,52 @@ private fun ObservationCard(text: String, modifier: Modifier = Modifier) {
 private fun ObservationsLoadingCard(modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "obs_pulse")
     val alpha by transition.animateFloat(
-        initialValue = 0.3f,
+        initialValue = 0.4f,
         targetValue = 0.9f,
         animationSpec = infiniteRepeatable(tween(700, easing = LinearEasing), RepeatMode.Reverse),
-        label = "alpha",
+        label = "obs_alpha",
     )
-    Box(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .neonBorder(BlackBoxColors.OutlineNeon, 1.dp)
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
             .padding(Dimens.PaddingCard),
-        contentAlignment = Alignment.Center,
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingSm),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        PulseDotsIndicator(color = BlackBoxColors.Indigo.copy(alpha = alpha), dotSize = 6.dp)
         Text(
-            text = "ANALYSING PATTERNS...",
-            style = MaterialTheme.typography.labelMedium,
-            color = BlackBoxColors.NeonGreen.copy(alpha = alpha),
+            text = "Analysing patterns...",
+            style = MaterialTheme.typography.bodySmall,
+            color = BlackBoxColors.TextTertiary.copy(alpha = alpha),
         )
     }
 }
 
-// ── Records card ──────────────────────────────────────────────────────────────
+// ── Averages card ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun RecordsCard(brief: InsightsBrief, modifier: Modifier = Modifier) {
+private fun AveragesCard(brief: InsightsBrief, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .neonBorder(BlackBoxColors.OutlineNeon, 1.dp)
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
             .padding(Dimens.PaddingCard),
         verticalArrangement = Arrangement.spacedBy(Dimens.SpacingXs),
     ) {
         brief.bestStepDay?.let { best ->
-            RecordRow(
-                label = "BEST DAY",
-                value = "${best.date.dayAbbrev()} · ${best.steps.formatK()} steps",
-                valueColor = BlackBoxColors.NeonGreen,
-            )
+            AverageRow("Best day", "${best.date.dayAbbrev()} · ${best.steps.formatK()} steps", BlackBoxColors.IndigoLight)
         }
-        RecordRow(
-            label = "AVG STEPS",
-            value = "${brief.avgDailySteps.formatK()} / day",
-            valueColor = BlackBoxColors.NeonGreen,
-        )
-        RecordRow(
-            label = "AVG SCREEN",
-            value = "${formatMinutes(brief.avgDailyScreenMinutes)} / day",
-            valueColor = BlackBoxColors.ElectricCyan,
-        )
+        AverageRow("Avg steps", "${brief.avgDailySteps.formatK()} / day", BlackBoxColors.IndigoLight)
+        AverageRow("Avg screen", "${formatMinutes(brief.avgDailyScreenMinutes)} / day", BlackBoxColors.TealLight)
         if (brief.weekTopPlaces.isNotEmpty()) {
-            RecordRow(
-                label = "PLACES",
-                value = "${brief.weekTopPlaces.size} unique this week",
-                valueColor = BlackBoxColors.NeonMagenta,
-            )
+            AverageRow("Places", "${brief.weekTopPlaces.size} unique this week", BlackBoxColors.Rose)
         }
     }
 }
 
 @Composable
-private fun RecordRow(label: String, value: String, valueColor: Color) {
+private fun AverageRow(label: String, value: String, valueColor: Color) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -643,41 +576,57 @@ private fun RecordRow(label: String, value: String, valueColor: Color) {
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = BlackBoxColors.TextMuted,
-            modifier = Modifier.width(80.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = BlackBoxColors.TextTertiary,
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
             color = valueColor,
         )
     }
 }
 
+// ── Section label ─────────────────────────────────────────────────────────────
+
+@Composable
+private fun SectionLabel(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = BlackBoxColors.TextTertiary,
+        modifier = modifier.padding(top = Dimens.SpacingXs),
+    )
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-private fun Int.formatK(): String = if (this >= 1000) "${this / 1000}k" else this.toString()
+private fun Int.formatK(): String = if (this >= 1000) "${"%.1f".format(this / 1000f)}k" else toString()
 
 private fun formatMinutes(minutes: Int): String {
-    val h = minutes / 60
-    val m = minutes % 60
+    val h = minutes / 60; val m = minutes % 60
     return if (h > 0) "${h}h ${m}m" else "${m}m"
 }
 
 private fun formatMinutesShort(minutes: Int): String {
-    val h = minutes / 60
-    val m = minutes % 60
+    val h = minutes / 60; val m = minutes % 60
     return if (h > 0) "${h}h" else "${m}m"
+}
+
+private fun stepsComparisonBadge(ratio: Float): String? {
+    val pct = ((ratio - 1f) * 100).toInt()
+    return when {
+        pct >= 5  -> "▲ +${pct}%"
+        pct <= -5 -> "▼ ${pct}%"
+        else      -> null
+    }
 }
 
 private fun String.dayAbbrev(): String = try {
     val cal = Calendar.getInstance()
-    cal.time = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(this) ?: return this.takeLast(2)
+    cal.time = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(this) ?: return takeLast(2)
     arrayOf("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa")[cal.get(Calendar.DAY_OF_WEEK) - 1]
-} catch (_: Exception) {
-    this.takeLast(2)
-}
+} catch (_: Exception) { takeLast(2) }
 
 // ── Previews ──────────────────────────────────────────────────────────────────
 
@@ -689,18 +638,10 @@ private val previewBrief = InsightsBrief(
     todayStepsVsAvg = 0.68f,
     weekStepTrend = listOf(8500, 6200, 12000, 9800, 7400, 5100, 4250)
         .mapIndexed { i, s -> DailyStepCount("2026-03-${3 + i}", s) },
-    weekScreenTrend = listOf(180 to 45, 210 to 52, 150 to 38, 195 to 48, 240 to 60, 165 to 41, 87 to 22)
-        .mapIndexed { i, (m, p) -> DailyScreenTime("2026-03-${3 + i}", m, p) },
-    weekTopPlaces = listOf(
-        PlaceVisit("Dizengoff St, Tel Aviv", 5),
-        PlaceVisit("Rothschild Blvd", 3),
-        PlaceVisit("Carmel Market", 1),
-    ),
-    weekTopApps = listOf(
-        AppUsageStat("YouTube", 225),
-        AppUsageStat("Chrome", 130),
-        AppUsageStat("WhatsApp", 90),
-    ),
+    weekScreenTrend = listOf(180, 210, 150, 195, 240, 165, 87)
+        .mapIndexed { i, m -> DailyScreenTime("2026-03-${3 + i}", m, m / 4) },
+    weekTopPlaces = listOf(PlaceVisit("Dizengoff St, Tel Aviv", 5), PlaceVisit("Rothschild Blvd", 3)),
+    weekTopApps = listOf(AppUsageStat("YouTube", 225), AppUsageStat("Chrome", 130), AppUsageStat("WhatsApp", 90)),
     bestStepDay = DailyStepCount("2026-03-05", 12000),
     avgDailySteps = 7_607,
     avgDailyScreenMinutes = 175,
@@ -717,8 +658,6 @@ private fun InsightsContentLoadedPreview() {
                 observations = listOf(
                     "You walk 40% more on weekdays than weekends.",
                     "Screen time peaks on Thursday — 4h vs your 2h 55m avg.",
-                    "Most visited place this week: Dizengoff St, 5 days.",
-                    "YouTube takes up 3h 45m of your weekly screen time.",
                 ),
             ),
             onAction = {},
@@ -728,14 +667,10 @@ private fun InsightsContentLoadedPreview() {
 
 @Preview(showBackground = true)
 @Composable
-private fun InsightsContentObservationsLoadingPreview() {
+private fun InsightsContentObsLoadingPreview() {
     BlackBoxTheme {
         InsightsContent(
-            state = InsightsContract.State(
-                isLoadingData = false,
-                brief = previewBrief,
-                isLoadingObservations = true,
-            ),
+            state = InsightsContract.State(isLoadingData = false, brief = previewBrief, isLoadingObservations = true),
             onAction = {},
         )
     }
@@ -745,9 +680,6 @@ private fun InsightsContentObservationsLoadingPreview() {
 @Composable
 private fun InsightsContentLoadingPreview() {
     BlackBoxTheme {
-        InsightsContent(
-            state = InsightsContract.State(isLoadingData = true),
-            onAction = {},
-        )
+        InsightsContent(state = InsightsContract.State(isLoadingData = true), onAction = {})
     }
 }

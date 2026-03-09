@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.LocationOn
@@ -24,7 +25,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,8 +41,8 @@ import com.blackbox.ui.theme.Dimens
  * Represents a tab item in the bottom navigation bar.
  *
  * @property screen The navigation destination for this tab.
- * @property icon The Material icon displayed for this tab.
- * @property label The display label shown below the icon.
+ * @property icon   The Material icon displayed for this tab.
+ * @property label  The display label shown below the icon.
  */
 data class BottomNavItem(
     val screen: Screen,
@@ -51,17 +51,16 @@ data class BottomNavItem(
 )
 
 /**
- * BlackBox cyberpunk bottom navigation bar with neon highlights.
+ * BlackBox Obsidian bottom navigation bar.
  *
- * Selected tab shows icon + label in [BlackBoxColors.NeonGreen] with
- * an animated neon underline indicator. Background extends into the
- * system navigation bar area via [navigationBarsPadding] so content
- * is never hidden behind gesture/button bars.
+ * Selected tab shows the icon and label in [BlackBoxColors.Indigo] with an animated
+ * pill indicator that slides underneath the icon. Unselected tabs use [BlackBoxColors.TextTertiary].
+ * A top border divides the bar from the screen content.
  *
- * @param currentRoute The route string of the currently active screen.
+ * @param currentRoute  The route string of the currently active screen.
  * @param onTabSelected Callback invoked with the selected [Screen] route.
- * @param modifier Optional [Modifier] for the navigation bar.
- * @param items The list of navigation tab items to display.
+ * @param modifier      Optional [Modifier] for the navigation bar.
+ * @param items         The list of navigation tab items to display.
  */
 @Composable
 fun BlackBoxBottomBar(
@@ -70,22 +69,20 @@ fun BlackBoxBottomBar(
     modifier: Modifier = Modifier,
     items: List<BottomNavItem>,
 ) {
-    Surface(
-        color = BlackBoxColors.Surface,
+    Box(
         modifier = modifier
             .fillMaxWidth()
+            .background(BlackBoxColors.Surface)
             .drawBehind {
-                // Neon top border line
+                // Top separator line
                 drawLine(
-                    color = BlackBoxColors.OutlineNeon,
+                    color = BlackBoxColors.Border,
                     start = Offset(0f, 0f),
                     end = Offset(size.width, 0f),
-                    strokeWidth = Dimens.NeonBorderWidth.toPx(),
+                    strokeWidth = 1.dp.toPx(),
                 )
             },
     ) {
-        // heightIn(min) ensures tabs have enough room; navigationBarsPadding adds
-        // bottom inset so content isn't hidden behind the system nav bar.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -93,12 +90,19 @@ fun BlackBoxBottomBar(
                 .navigationBarsPadding()
                 .selectableGroup(),
             horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.Top,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             items.forEach { item ->
                 val selected = currentRoute == item.screen.route
-                val iconColor = if (selected) BlackBoxColors.NeonGreen else BlackBoxColors.TextMuted
-                val labelColor = if (selected) BlackBoxColors.NeonGreen else BlackBoxColors.TextMuted
+                val iconColor = if (selected) BlackBoxColors.Indigo else BlackBoxColors.TextTertiary
+                val labelColor = if (selected) BlackBoxColors.Indigo else BlackBoxColors.TextTertiary
+
+                // Animate the pill indicator width
+                val pillWidth by animateDpAsState(
+                    targetValue = if (selected) 40.dp else 0.dp,
+                    animationSpec = tween(durationMillis = 220),
+                    label = "pill_${item.screen.route}",
+                )
 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -106,21 +110,24 @@ fun BlackBoxBottomBar(
                     modifier = Modifier
                         .weight(1f)
                         .height(Dimens.BottomBarHeight)
-                        .padding(top = Dimens.SpacingXs)
-                        .noRippleClickable { onTabSelected(item.screen.route) },
+                        .clickable(
+                            indication = null,
+                            interactionSource = null,
+                            onClick = { onTabSelected(item.screen.route) },
+                        ),
                 ) {
-                    // Animated neon underline indicator at top of tab
-                    val indicatorWidth by animateDpAsState(
-                        targetValue = if (selected) 24.dp else 0.dp,
-                        animationSpec = tween(durationMillis = 200),
-                        label = "neon_indicator_${item.screen.route}",
-                    )
+                    // Pill indicator above icon
                     Box(
                         modifier = Modifier
-                            .width(indicatorWidth)
-                            .height(Dimens.BottomBarNeonIndicatorHeight)
-                            .background(BlackBoxColors.NeonGreen),
+                            .width(pillWidth)
+                            .height(3.dp)
+                            .background(
+                                BlackBoxColors.Indigo,
+                                RoundedCornerShape(bottomStart = 3.dp, bottomEnd = 3.dp),
+                            ),
                     )
+
+                    Box(modifier = Modifier.size(2.dp)) // small gap
 
                     Icon(
                         imageVector = item.icon,
@@ -128,7 +135,7 @@ fun BlackBoxBottomBar(
                         tint = iconColor,
                         modifier = Modifier
                             .size(Dimens.IconMd)
-                            .padding(top = Dimens.SpacingXs),
+                            .padding(top = 4.dp),
                     )
 
                     Text(
@@ -145,12 +152,6 @@ fun BlackBoxBottomBar(
 
 /**
  * Creates the default list of bottom navigation items.
- *
- * @param searchLabel Label for the Search tab.
- * @param timelineLabel Label for the Timeline tab.
- * @param mapLabel Label for the Map tab.
- * @param insightsLabel Label for the Insights tab.
- * @param settingsLabel Label for the Settings tab.
  */
 fun defaultBottomNavItems(
     searchLabel: String,
@@ -165,11 +166,3 @@ fun defaultBottomNavItems(
     BottomNavItem(Screen.Insights, Icons.Default.Star, insightsLabel),
     BottomNavItem(Screen.Settings, Icons.Default.Settings, settingsLabel),
 )
-
-/** Modifier helper: click without ripple effect. */
-private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier =
-    this.clickable(
-        indication = null,
-        interactionSource = null,
-        onClick = onClick,
-    )

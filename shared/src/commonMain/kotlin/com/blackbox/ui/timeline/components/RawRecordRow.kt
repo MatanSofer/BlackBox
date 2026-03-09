@@ -47,7 +47,7 @@ fun RawRecordRow(
         Text(
             text = timeFormat.format(Date(record.timestamp)),
             style = MaterialTheme.typography.labelSmall,
-            color = BlackBoxColors.TextMuted,
+            color = BlackBoxColors.TextTertiary,
         )
 
         Spacer(modifier = Modifier.width(Dimens.SpacingMd))
@@ -55,7 +55,7 @@ fun RawRecordRow(
         Text(
             text = summarise(record.data),
             style = MaterialTheme.typography.bodySmall,
-            color = BlackBoxColors.TextMuted,
+            color = BlackBoxColors.TextTertiary,
             modifier = Modifier.weight(1f),
         )
     }

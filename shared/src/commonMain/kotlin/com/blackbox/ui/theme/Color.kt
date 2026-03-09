@@ -3,42 +3,63 @@ package com.blackbox.ui.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * BlackBox cyberpunk color palette.
+ * BlackBox "Obsidian" color palette.
  *
- * Near-black backgrounds with neon green primary, electric cyan secondary,
- * and neon magenta tertiary/error. Dark-only design language.
+ * Deep near-black backgrounds with soft indigo as primary, teal as secondary,
+ * and rose as accent. Premium dark-only design language.
  */
 object BlackBoxColors {
 
-    // ── Backgrounds & Surfaces ──
-    val Background = Color(0xFF050510)
-    val Surface = Color(0xFF0D0D20)
-    val SurfaceVariant = Color(0xFF141428)
+    // ── Backgrounds & Surfaces ──────────────────────────────────────────────
+    val Background      = Color(0xFF0A0A0F)
+    val Surface         = Color(0xFF111118)
+    val SurfaceVariant  = Color(0xFF1C1C27)
+    val SurfaceElevated = Color(0xFF232332)
 
-    // ── Primary: Neon Green ──
-    val NeonGreen = Color(0xFF00FF41)
-    val NeonGreenFaint = Color(0x1A00FF41)   // 10% — glow card fill
+    // ── Borders ─────────────────────────────────────────────────────────────
+    val Border      = Color(0xFF252537)
+    val BorderFaint = Color(0xFF1B1B28)
 
-    // ── Secondary: Electric Cyan ──
-    val ElectricCyan = Color(0xFF00D4FF)
-    val ElectricCyanFaint = Color(0x1A00D4FF) // 10% — secondary card fill
+    // ── Primary: Soft Indigo ─────────────────────────────────────────────────
+    val Indigo      = Color(0xFF6366F1)
+    val IndigoLight = Color(0xFF818CF8)   // lighter variant for text on dark
+    val IndigoDim   = Color(0x1F6366F1)   // ~12% — container fills
 
-    // ── Tertiary / Error: Neon Magenta ──
-    val NeonMagenta = Color(0xFFFF0064)
-    val NeonMagentaFaint = Color(0x1AFF0064)
+    // ── Secondary: Teal ──────────────────────────────────────────────────────
+    val Teal      = Color(0xFF14B8A6)
+    val TealLight = Color(0xFF2DD4BF)
+    val TealDim   = Color(0x1F14B8A6)     // ~12%
 
-    // ── Text ──
-    val TextPrimary = Color(0xFFE0FFE8)       // green-tinted white
-    val TextMuted = Color(0xFF808099)
-    val TextOnNeon = Color(0xFF050510)         // dark text on neon buttons
+    // ── Accent: Rose ─────────────────────────────────────────────────────────
+    val Rose    = Color(0xFFF472B6)
+    val RoseDim = Color(0x1FF472B6)       // ~12%
 
-    // ── Borders / Outlines ──
-    val OutlineNeon = Color(0x3300FF41)        // 20% neon green
-    val OutlineFaint = Color(0xFF1A1A35)
+    // ── Text ─────────────────────────────────────────────────────────────────
+    val TextPrimary   = Color(0xFFF0F0F4)
+    val TextSecondary = Color(0xFF9394A5)
+    val TextTertiary  = Color(0xFF52526A)
 
-    // ── Semantic (kept for UiError compatibility) ──
-    val Success = NeonGreen
-    val Error = NeonMagenta
-    val Warning = ElectricCyan
-    val OnError = TextOnNeon
+    // ── On-accent (text on colored buttons/chips) ────────────────────────────
+    val OnAccent = Color(0xFFFFFFFF)
+
+    // ── Semantic ─────────────────────────────────────────────────────────────
+    val Success = Color(0xFF34D399)  // emerald
+    val Error   = Color(0xFFF87171)  // soft red
+    val Warning = Color(0xFFFBBF24)  // amber
+
+    // ── Collector accent colors ───────────────────────────────────────────────
+    // (used in timeline collector group cards — kept vibrant for data viz)
+    val AccentLocation    = Color(0xFF6366F1)  // indigo
+    val AccentActivity    = Color(0xFF14B8A6)  // teal
+    val AccentWifi        = Color(0xFFFBBF24)  // amber
+    val AccentConnectivity = Color(0xFFF97316) // orange
+    val AccentBattery     = Color(0xFFEAB308)  // yellow
+    val AccentScreen      = Color(0xFFA78BFA)  // violet
+    val AccentAppUsage    = Color(0xFFF472B6)  // rose
+    val AccentAudio       = Color(0xFFF87171)  // red
+    val AccentBarometer   = Color(0xFF22D3EE)  // cyan
+    val AccentLight       = Color(0xFF94A3B8)  // slate
+    val AccentCall        = Color(0xFF4ADE80)  // green
+    val AccentMedia       = Color(0xFFC084FC)  // purple
+    val AccentDerived     = Color(0xFFEF4444)  // red (derived events)
 }

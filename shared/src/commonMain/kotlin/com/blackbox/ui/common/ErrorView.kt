@@ -20,25 +20,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import blackbox.shared.generated.resources.Res
 import blackbox.shared.generated.resources.error_title
 import blackbox.shared.generated.resources.retry
 import com.blackbox.ui.theme.BlackBoxColors
 import com.blackbox.ui.theme.BlackBoxTheme
 import com.blackbox.ui.theme.Dimens
-import com.blackbox.ui.theme.neonBorder
+import com.blackbox.ui.theme.obsidianCard
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Terminal-style full-screen error view with neon magenta border.
+ * Full-screen error view with a warning icon, message, and optional retry button.
  *
- * Displays a [ERROR] prefix, warning icon, error title, descriptive
- * message, and an optional retry button inside a neon-bordered card.
- *
- * @param message The human-readable error message to display.
+ * @param message  Human-readable error description.
  * @param modifier Optional [Modifier] for the container.
- * @param onRetry Optional callback for the retry button. If null, the button is hidden.
+ * @param onRetry  Optional retry callback. If null the button is hidden.
  */
 @Composable
 fun ErrorView(
@@ -57,25 +53,17 @@ fun ErrorView(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxWidth()
-                .neonBorder(color = BlackBoxColors.NeonMagenta, cornerRadius = 4.dp)
+                .obsidianCard(cornerRadius = Dimens.RadiusMd, borderColor = BlackBoxColors.Error.copy(alpha = 0.4f))
                 .padding(Dimens.PaddingCard),
         ) {
             Icon(
                 imageVector = Icons.Default.Warning,
                 contentDescription = null,
                 modifier = Modifier.size(Dimens.IconXl),
-                tint = BlackBoxColors.NeonMagenta,
+                tint = BlackBoxColors.Error,
             )
 
             Spacer(modifier = Modifier.height(Dimens.SpacingLg))
-
-            Text(
-                text = "[ERROR]",
-                style = MaterialTheme.typography.labelLarge,
-                color = BlackBoxColors.NeonMagenta,
-            )
-
-            Spacer(modifier = Modifier.height(Dimens.SpacingXs))
 
             Text(
                 text = stringResource(Res.string.error_title),
@@ -88,7 +76,7 @@ fun ErrorView(
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
-                color = BlackBoxColors.TextMuted,
+                color = BlackBoxColors.TextSecondary,
                 textAlign = TextAlign.Center,
             )
 
@@ -98,8 +86,8 @@ fun ErrorView(
                 Button(
                     onClick = onRetry,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = BlackBoxColors.NeonMagenta,
-                        contentColor = BlackBoxColors.TextOnNeon,
+                        containerColor = BlackBoxColors.Indigo,
+                        contentColor = BlackBoxColors.OnAccent,
                     ),
                 ) {
                     Text(text = stringResource(Res.string.retry))
@@ -114,7 +102,7 @@ fun ErrorView(
 private fun ErrorViewWithRetryPreview() {
     BlackBoxTheme {
         ErrorView(
-            message = "Unable to load data. Please check your connection.",
+            message = "Unable to load data. Please try again.",
             onRetry = {},
         )
     }
@@ -124,8 +112,6 @@ private fun ErrorViewWithRetryPreview() {
 @Composable
 private fun ErrorViewNoRetryPreview() {
     BlackBoxTheme {
-        ErrorView(
-            message = "An unexpected error occurred.",
-        )
+        ErrorView(message = "An unexpected error occurred.")
     }
 }

@@ -5,15 +5,14 @@ import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
 /**
- * BlackBox shape system — cyberpunk aesthetic.
+ * BlackBox shape system — modern rounded aesthetic.
  *
- * Sharp, angular corners reinforce the terminal/hacker visual language.
- * Minimal rounding keeps the UI feeling precise and technical.
+ * Generous corner radii create a premium, approachable feel.
  */
 val BlackBoxShapes = Shapes(
-    extraSmall = RoundedCornerShape(2.dp),
-    small = RoundedCornerShape(4.dp),
-    medium = RoundedCornerShape(4.dp),
-    large = RoundedCornerShape(6.dp),
-    extraLarge = RoundedCornerShape(8.dp),
+    extraSmall = RoundedCornerShape(8.dp),
+    small      = RoundedCornerShape(12.dp),
+    medium     = RoundedCornerShape(16.dp),
+    large      = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(28.dp),
 )

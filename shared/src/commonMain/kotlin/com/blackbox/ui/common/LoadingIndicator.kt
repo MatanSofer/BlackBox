@@ -15,13 +15,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.blackbox.ui.theme.BlackBoxColors
 import com.blackbox.ui.theme.BlackBoxTheme
 import com.blackbox.ui.theme.Dimens
-import com.blackbox.ui.theme.NeonPulseIndicator
+import com.blackbox.ui.theme.PulseDotsIndicator
 
 /**
- * Centered neon pulse loading indicator with a "SCANNING..." label.
- *
- * Replaces the standard circular progress indicator with a cyberpunk-styled
- * [NeonPulseIndicator] and monospace terminal-style status text.
+ * Centred loading indicator using three pulsing dots.
  *
  * @param modifier Optional [Modifier] for the container.
  */
@@ -35,17 +32,14 @@ fun LoadingIndicator(modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            NeonPulseIndicator(
-                color = BlackBoxColors.NeonGreen,
-                size = Dimens.LoadingSize,
-            )
+            PulseDotsIndicator(color = BlackBoxColors.Indigo)
 
             Spacer(modifier = Modifier.height(Dimens.SpacingMd))
 
             Text(
-                text = "SCANNING...",
-                style = MaterialTheme.typography.labelMedium,
-                color = BlackBoxColors.TextMuted,
+                text = "Loading...",
+                style = MaterialTheme.typography.bodySmall,
+                color = BlackBoxColors.TextTertiary,
             )
         }
     }
@@ -54,15 +48,11 @@ fun LoadingIndicator(modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 private fun LoadingIndicatorPreview() {
-    BlackBoxTheme {
-        LoadingIndicator()
-    }
+    BlackBoxTheme { LoadingIndicator() }
 }
 
 @Preview(showBackground = true)
 @Composable
-private fun LoadingIndicatorLightPreview() {
-    BlackBoxTheme(darkTheme = false) {
-        LoadingIndicator()
-    }
+private fun LoadingIndicatorDarkPreview() {
+    BlackBoxTheme(darkTheme = false) { LoadingIndicator() }
 }
