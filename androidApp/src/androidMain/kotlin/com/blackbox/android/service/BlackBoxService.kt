@@ -17,6 +17,7 @@ import androidx.core.content.ContextCompat
 import com.blackbox.android.MainActivity
 import com.blackbox.android.R
 import com.blackbox.android.collector.base.CollectorOrchestrator
+import com.blackbox.domain.platform.StepCounterProvider
 import com.blackbox.domain.util.BlackBoxLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +38,7 @@ import org.koin.android.ext.android.inject
 class BlackBoxService : Service() {
 
     private val orchestrator: CollectorOrchestrator by inject()
+    private val stepCounterProvider: StepCounterProvider by inject()
     private val logger: BlackBoxLogger by inject()
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -52,6 +54,19 @@ class BlackBoxService : Service() {
 
         val notification = buildNotification()
         startForegroundCompat(notification)
+
+        serviceScope.launch {
+            // Snapshot step counter baseline as early as possible each day.
+            // TYPE_STEP_COUNTER is cumulative since reboot; reading it here (at service
+            // start / boot) ensures the baseline is anchored near midnight rather than
+            // whenever the user first opens the Insights screen.
+            try {
+                stepCounterProvider.getTodaySteps()
+                logger.d(TAG, "Step counter baseline anchored at service start")
+            } catch (e: Exception) {
+                logger.w(TAG, "Step counter baseline snapshot failed", e)
+            }
+        }
 
         serviceScope.launch {
             try {
