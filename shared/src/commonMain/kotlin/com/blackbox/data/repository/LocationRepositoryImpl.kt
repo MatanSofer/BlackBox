@@ -97,6 +97,7 @@ class LocationRepositoryImpl(
                 bearing = location.bearing?.toDouble(),
                 source = location.source,
                 timestamp = location.timestamp,
+                address = location.address,
             )
         }
     }

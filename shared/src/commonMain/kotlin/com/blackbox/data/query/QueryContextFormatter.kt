@@ -104,9 +104,10 @@ class QueryContextFormatter {
     private fun summarise(data: RecordData): String = when (data) {
         is RecordData.Location -> {
             val d = data.locationData
-            "LAT=%.5f LNG=%.5f acc=%.0fm spd=%.1fm/s".format(
-                d.latitude, d.longitude, d.accuracyMeters ?: 0f, d.speed ?: 0f,
-            )
+            val pos = d.address ?: "unknown location"
+            val acc = d.accuracyMeters?.let { " acc=%.0fm".format(it) } ?: ""
+            val spd = d.speed?.takeIf { it > 0.5f }?.let { " spd=%.1fm/s".format(it) } ?: ""
+            "$pos$acc$spd"
         }
         is RecordData.Activity -> {
             val d = data.activityData

@@ -65,6 +65,7 @@ interface LocationRepository {
  * @property bearing Compass bearing in degrees.
  * @property source How this location was determined.
  * @property timestamp When this location was captured (epoch ms).
+ * @property address Reverse-geocoded human-readable address (null if unavailable).
  */
 data class LocationEntry(
     val id: Long = 0,
@@ -77,4 +78,5 @@ data class LocationEntry(
     val bearing: Float? = null,
     val source: String = "FUSED",
     val timestamp: Long,
+    val address: String? = null,
 )

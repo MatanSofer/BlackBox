@@ -213,7 +213,7 @@ class GetCollectorGroupsUseCase(
 
     private suspend fun buildStayEntry(start: LocationEntry, end: LocationEntry): TimelineEntry {
         val place = placeRepository.findNearestPlace(start.latitude, start.longitude)
-        val title = place?.name ?: "(%.4f, %.4f)".format(start.latitude, start.longitude)
+        val title = place?.name ?: start.address ?: "Unknown location"
         val durationMin = (end.timestamp - start.timestamp) / 60_000
         return TimelineEntry(
             startTimestamp = start.timestamp,

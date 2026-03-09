@@ -111,10 +111,7 @@ private fun summarise(data: RecordData): String = when (data) {
     }
     // Base collectors — raw rows are not shown for these, but handle gracefully
     is RecordData.Location -> {
-        "(%.4f, %.4f)".format(
-            data.locationData.latitude,
-            data.locationData.longitude,
-        )
+        data.locationData.address ?: "Unknown location"
     }
     is RecordData.Activity -> {
         data.activityData.detectedActivity.name

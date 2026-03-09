@@ -29,7 +29,8 @@ CREATE TABLE LocationRecord (
     speed REAL,
     bearing REAL,
     source TEXT NOT NULL,
-    timestamp INTEGER NOT NULL
+    timestamp INTEGER NOT NULL,
+    address TEXT
 );
 
 CREATE INDEX idx_location_timestamp ON LocationRecord(timestamp);
@@ -169,8 +170,8 @@ SELECT COUNT(*) FROM BlackBoxRecord;
 -- ============================================================
 
 insertLocation:
-INSERT INTO LocationRecord (record_id, latitude, longitude, altitude, accuracy_meters, speed, bearing, source, timestamp)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO LocationRecord (record_id, latitude, longitude, altitude, accuracy_meters, speed, bearing, source, timestamp, address)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getLocationsInRange:
 SELECT * FROM LocationRecord

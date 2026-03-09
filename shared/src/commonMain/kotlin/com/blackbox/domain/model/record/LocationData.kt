@@ -17,6 +17,9 @@ import kotlinx.serialization.Serializable
  * @property bearing Compass bearing in degrees 0-360 (null if unavailable).
  * @property source How this location was determined.
  * @property providerDetails Additional provider info (e.g., "gps+wifi").
+ * @property address Human-readable reverse-geocoded address (street + city).
+ *   Null when offline at collection time or when the user has not moved
+ *   significantly since the last geocoded fix.
  */
 @Serializable
 data class LocationData(
@@ -28,6 +31,7 @@ data class LocationData(
     val bearing: Float? = null,
     val source: LocationSource = LocationSource.FUSED,
     val providerDetails: String? = null,
+    val address: String? = null,
 )
 
 /**

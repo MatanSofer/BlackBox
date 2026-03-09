@@ -1,0 +1,2 @@
+-- Migration 1 → 2: add reverse-geocoded address column to LocationRecord
+ALTER TABLE LocationRecord ADD COLUMN address TEXT;

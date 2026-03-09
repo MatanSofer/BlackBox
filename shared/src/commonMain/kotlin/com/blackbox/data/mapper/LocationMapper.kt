@@ -22,5 +22,6 @@ object LocationMapper {
         bearing = db.bearing?.toFloat(),
         source = db.source,
         timestamp = db.timestamp,
+        address = db.address,
     )
 }

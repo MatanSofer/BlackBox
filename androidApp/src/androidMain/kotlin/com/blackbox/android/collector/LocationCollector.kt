@@ -2,6 +2,7 @@ package com.blackbox.android.collector
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.location.Geocoder
 import android.os.Looper
 import com.blackbox.android.collector.base.BaseCollector
 import com.blackbox.domain.model.record.CollectedRecord
@@ -23,7 +24,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
 import java.util.UUID
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * Collects location data using Google's FusedLocationProviderClient.
@@ -55,6 +63,13 @@ class LocationCollector(
 
     /** Default location update interval in milliseconds. */
     private val intervalMs: Long = DEFAULT_INTERVAL_MS
+
+    // ── Reverse-geocoding cache ────────────────────────────────────────────────
+    // Avoid calling Geocoder on every fix; only re-geocode when the user
+    // has moved more than MIN_GEOCODE_DISTANCE_METERS from the last call.
+    private var lastGeocodedLat: Double = Double.NaN
+    private var lastGeocodedLng: Double = Double.NaN
+    private var lastGeocodedAddress: String? = null
 
     @SuppressLint("MissingPermission")
     override fun onCollectorStarted() {
@@ -137,6 +152,17 @@ class LocationCollector(
     ) {
         val now = System.currentTimeMillis()
 
+        // Reverse-geocode only when the user has moved enough to warrant a new lookup.
+        val address = if (shouldGeocode(latitude, longitude)) {
+            reverseGeocode(latitude, longitude).also { addr ->
+                lastGeocodedLat = latitude
+                lastGeocodedLng = longitude
+                lastGeocodedAddress = addr
+            }
+        } else {
+            lastGeocodedAddress
+        }
+
         val locationData = LocationData(
             latitude = latitude,
             longitude = longitude,
@@ -145,6 +171,7 @@ class LocationCollector(
             speed = speed,
             bearing = bearing,
             source = LocationSource.FUSED,
+            address = address,
         )
 
         val record = CollectedRecord(
@@ -165,6 +192,7 @@ class LocationCollector(
             bearing = bearing,
             source = LocationSource.FUSED.name,
             timestamp = timestamp,
+            address = address,
         )
 
         saveLocationRecordUseCase(record, locationEntry)
@@ -194,6 +222,57 @@ class LocationCollector(
         }
     }
 
+    /**
+     * Returns true when the device has moved more than [MIN_GEOCODE_DISTANCE_METERS]
+     * from the last geocoded position, or when geocoding has not been done yet.
+     */
+    private fun shouldGeocode(lat: Double, lng: Double): Boolean {
+        if (lastGeocodedLat.isNaN() || lastGeocodedLng.isNaN()) return true
+        return haversineDistance(lastGeocodedLat, lastGeocodedLng, lat, lng) >= MIN_GEOCODE_DISTANCE_METERS
+    }
+
+    /**
+     * Reverse-geocodes the given coordinates on the IO dispatcher.
+     *
+     * Returns a formatted "street, city" string, or null if the Geocoder is
+     * unavailable, returns no results, or the network call fails.
+     */
+    private suspend fun reverseGeocode(lat: Double, lng: Double): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            if (!Geocoder.isPresent()) return@withContext null
+            val geocoder = Geocoder(context, Locale.getDefault())
+            @Suppress("DEPRECATION")
+            val addresses = geocoder.getFromLocation(lat, lng, 1)
+            formatAddress(addresses?.firstOrNull())
+        }.getOrNull()
+    }
+
+    /**
+     * Formats an [android.location.Address] into a compact "street, city" string.
+     * Returns null when no meaningful fields are present.
+     */
+    private fun formatAddress(addr: android.location.Address?): String? {
+        addr ?: return null
+        val street = listOfNotNull(addr.subThoroughfare, addr.thoroughfare)
+            .joinToString(" ")
+            .ifBlank { null }
+        val city = addr.locality ?: addr.subAdminArea
+        return listOfNotNull(street, city).joinToString(", ").ifBlank { null }
+    }
+
+    /**
+     * Computes the great-circle distance in metres between two WGS84 coordinates
+     * using the Haversine formula.
+     */
+    private fun haversineDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6_371_000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = sin(dLat / 2).pow(2) +
+            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
+        return r * 2 * atan2(sqrt(a), sqrt(1 - a))
+    }
+
     companion object {
         private const val TAG = "LocationCollector"
 
@@ -205,5 +284,8 @@ class LocationCollector(
 
         /** GPS accuracy considered poor (meters). */
         private const val POOR_ACCURACY_METERS = 100f
+
+        /** Minimum movement in metres before triggering a new reverse-geocode call. */
+        private const val MIN_GEOCODE_DISTANCE_METERS = 100.0
     }
 }
