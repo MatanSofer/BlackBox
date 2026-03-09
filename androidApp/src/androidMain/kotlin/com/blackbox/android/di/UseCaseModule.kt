@@ -61,7 +61,7 @@ val useCaseModule = module {
     single { DetectKnownPlacesUseCase(get(), get(), get()) }
 
     // Insight use cases
-    single { GetInsightsBriefUseCase(get(), get(), get(), get()) }
+    single { GetInsightsBriefUseCase(get(), get(), get(), get(), get()) }
     single { GenerateInsightObservationsUseCase(get(), get()) }
 
     // Settings use cases

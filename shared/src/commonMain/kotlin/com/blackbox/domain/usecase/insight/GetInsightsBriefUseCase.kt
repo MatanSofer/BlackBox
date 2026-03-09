@@ -4,6 +4,7 @@ import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.RecordData
 import com.blackbox.domain.model.record.ScreenState
 import com.blackbox.domain.repository.DailyStepCount
+import com.blackbox.domain.platform.StepCounterProvider
 import com.blackbox.domain.repository.InsightRepository
 import com.blackbox.domain.repository.LocationEntry
 import com.blackbox.domain.repository.LocationRepository
@@ -35,6 +36,7 @@ class GetInsightsBriefUseCase(
     private val insightRepository: InsightRepository,
     private val recordRepository: RecordRepository,
     private val locationRepository: LocationRepository,
+    private val stepCounterProvider: StepCounterProvider,
     private val logger: BlackBoxLogger,
 ) {
 
@@ -83,13 +85,13 @@ class GetInsightsBriefUseCase(
             .distinct()
             .size
 
-        // Today's steps: use max-min of the hardware cumulative counter.
-        // stepCountDelta on each record = "steps since session start", NOT since last record,
-        // so summing deltas would massively overcount. The cumulative diff is accurate.
+        // Today's steps: read directly from the hardware step counter sensor.
+        // Falls back to the DB cumulative-diff approach if the sensor is unavailable.
         val todayActivityRecords = recordRepository.getRecordsByTypeInRange(
             CollectorType.ACTIVITY, todayStartMs, nowMs,
         )
-        val todaySteps = computeTodaySteps(todayActivityRecords)
+        val todaySteps = stepCounterProvider.getTodaySteps()
+            ?: computeTodaySteps(todayActivityRecords)
 
         // Today's screen time from raw ScreenState events.
         // DailySummary.total_screen_time_minutes is only written by the midnight worker
