@@ -2,6 +2,7 @@ package com.blackbox.domain.usecase.insight
 
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.RecordData
+import com.blackbox.domain.model.record.ScreenState
 import com.blackbox.domain.repository.DailyStepCount
 import com.blackbox.domain.repository.InsightRepository
 import com.blackbox.domain.repository.LocationEntry
@@ -82,26 +83,33 @@ class GetInsightsBriefUseCase(
             .distinct()
             .size
 
-        // Today's steps from raw activity records (daily summary may not exist yet)
+        // Today's steps: use max-min of the hardware cumulative counter.
+        // stepCountDelta on each record = "steps since session start", NOT since last record,
+        // so summing deltas would massively overcount. The cumulative diff is accurate.
         val todayActivityRecords = recordRepository.getRecordsByTypeInRange(
             CollectorType.ACTIVITY, todayStartMs, nowMs,
         )
-        val todaySteps = todayActivityRecords
-            .mapNotNull { (it.data as? RecordData.Activity)?.activityData?.stepCountDelta }
-            .sum()
+        val todaySteps = computeTodaySteps(todayActivityRecords)
+
+        // Today's screen time from raw ScreenState events.
+        // DailySummary.total_screen_time_minutes is only written by the midnight worker
+        // so today's row does not exist yet — we must compute it from raw records.
+        val todayScreenRecords = recordRepository.getRecordsByTypeInRange(
+            CollectorType.SCREEN_STATE, todayStartMs, nowMs,
+        )
+        val todayScreenMinutes = computeScreenMinutes(todayScreenRecords, nowMs)
 
         // Derived aggregates
         val avgSteps = stepTrend.map { it.steps }.average().takeIf { it.isFinite() }?.toInt() ?: 0
         val avgScreen = screenTrend.map { it.totalMinutes }.average().takeIf { it.isFinite() }?.toInt() ?: 0
         val bestStepDay = stepTrend.maxByOrNull { it.steps }
-        val todayScreenEntry = screenTrend.find { it.date == todayStr }
         val stepsVsAvg = if (avgSteps > 0) todaySteps.toFloat() / avgSteps else 1f
 
         logger.d(TAG, "Brief ready — today: $todaySteps steps, ${weekTopApps.size} apps, ${weekTopPlaces.size} places")
 
         InsightsBrief(
             todaySteps = todaySteps,
-            todayScreenMinutes = todayScreenEntry?.totalMinutes ?: 0,
+            todayScreenMinutes = todayScreenMinutes,
             todayPlacesCount = todayPlacesCount,
             todayTopApp = todayTopApp,
             todayStepsVsAvg = stepsVsAvg,
@@ -113,6 +121,60 @@ class GetInsightsBriefUseCase(
             avgDailySteps = avgSteps,
             avgDailyScreenMinutes = avgScreen,
         )
+    }
+
+    /**
+     * Computes today's step count from raw activity records.
+     *
+     * Uses the hardware pedometer's cumulative counter: max(stepCountCumulative)
+     * minus min(stepCountCumulative). This is correct regardless of how many
+     * activity transitions occurred, and avoids the overcounting bug that
+     * summing [ActivityData.stepCountDelta] would cause (each delta represents
+     * "steps since session start", not "steps since last record").
+     */
+    private fun computeTodaySteps(records: List<CollectedRecord>): Int {
+        val cumulativeValues = records
+            .mapNotNull { (it.data as? RecordData.Activity)?.activityData?.stepCountCumulative }
+            .filter { it > 0 }
+        if (cumulativeValues.isEmpty()) return 0
+        return (cumulativeValues.max() - cumulativeValues.min()).toInt().coerceAtLeast(0)
+    }
+
+    /**
+     * Computes today's screen-on minutes by pairing SCREEN ON → OFF events.
+     *
+     * [DailySummary.total_screen_time_minutes] is written only by the midnight worker
+     * and does not exist for the current in-progress day. This function derives
+     * the same metric directly from raw [ScreenStateData] records.
+     *
+     * An ON event without a matching OFF is closed against [nowMs] (phone still on).
+     */
+    private fun computeScreenMinutes(records: List<CollectedRecord>, nowMs: Long): Int {
+        var totalMs = 0L
+        var lastOnMs: Long? = null
+
+        records
+            .sortedBy { it.timestamp }
+            .forEach { record ->
+                val state = (record.data as? RecordData.ScreenState)?.screenStateData?.state
+                when (state) {
+                    ScreenState.ON, ScreenState.UNLOCKED -> {
+                        if (lastOnMs == null) lastOnMs = record.timestamp
+                    }
+                    ScreenState.OFF, ScreenState.LOCKED -> {
+                        lastOnMs?.let { onMs ->
+                            totalMs += record.timestamp - onMs
+                            lastOnMs = null
+                        }
+                    }
+                    else -> Unit
+                }
+            }
+
+        // Screen still on right now — count up to current time
+        lastOnMs?.let { totalMs += nowMs - it }
+
+        return (totalMs / 60_000L).toInt()
     }
 
     private fun aggregateTopApps(
