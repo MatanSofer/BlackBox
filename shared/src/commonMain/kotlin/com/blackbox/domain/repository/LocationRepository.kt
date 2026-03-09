@@ -47,6 +47,22 @@ interface LocationRepository {
 
     /** Deletes all location entries within a time range. */
     suspend fun deleteLocationsInRange(startTime: Long, endTime: Long)
+
+    /**
+     * Returns all location entries that have no reverse-geocoded address yet.
+     * Used by [GeocodingRetryWorker] to backfill addresses once internet is available.
+     */
+    suspend fun getLocationsWithoutAddress(): List<LocationEntry>
+
+    /**
+     * Updates the address for a location entry and keeps the master record's
+     * data_json in sync so query results reflect the resolved name.
+     *
+     * @param id Primary key of the [LocationRecord] row to update.
+     * @param recordId Primary key of the parent [BlackBoxRecord] row.
+     * @param address The resolved human-readable address to store.
+     */
+    suspend fun updateLocationAddress(id: Long, recordId: Long, address: String)
 }
 
 /**

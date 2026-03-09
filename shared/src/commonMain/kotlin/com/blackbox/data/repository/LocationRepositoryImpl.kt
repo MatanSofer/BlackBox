@@ -4,6 +4,7 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import com.blackbox.data.database.BlackBoxDatabase
 import com.blackbox.data.mapper.LocationMapper
+import com.blackbox.domain.model.record.LocationData
 import com.blackbox.domain.repository.LocationEntry
 import com.blackbox.domain.repository.LocationRepository
 import com.blackbox.domain.util.BlackBoxLogger
@@ -12,6 +13,8 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 /**
  * SQLDelight-backed implementation of [LocationRepository].
@@ -109,7 +112,42 @@ class LocationRepositoryImpl(
         }
     }
 
+    override suspend fun getLocationsWithoutAddress(): List<LocationEntry> {
+        return withContext(Dispatchers.IO) {
+            logger.d(TAG, "Fetching locations with null address")
+            database.blackBoxDatabaseQueries
+                .getLocationsWithoutAddress()
+                .executeAsList()
+                .map(LocationMapper::toDomain)
+        }
+    }
+
+    override suspend fun updateLocationAddress(id: Long, recordId: Long, address: String) {
+        withContext(Dispatchers.IO) {
+            database.blackBoxDatabaseQueries.transaction {
+                database.blackBoxDatabaseQueries.updateLocationAddress(address, id)
+
+                // Keep BlackBoxRecord.data_json in sync so queries and the AI context
+                // see the resolved name instead of null.
+                val dbRecord = database.blackBoxDatabaseQueries
+                    .getRecordById(recordId)
+                    .executeAsOneOrNull()
+                if (dbRecord != null) {
+                    val updated = runCatching {
+                        val locationData = json.decodeFromString<LocationData>(dbRecord.data_json)
+                        json.encodeToString(locationData.copy(address = address))
+                    }.getOrNull()
+                    if (updated != null) {
+                        database.blackBoxDatabaseQueries.updateRecordDataJson(updated, recordId)
+                    }
+                }
+            }
+            logger.d(TAG, "Address updated for location id=$id → $address")
+        }
+    }
+
     companion object {
         private const val TAG = "LocationRepository"
+        private val json = Json { ignoreUnknownKeys = true }
     }
 }

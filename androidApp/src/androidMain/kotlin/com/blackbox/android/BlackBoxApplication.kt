@@ -4,6 +4,7 @@ import android.app.Application
 import com.blackbox.android.di.appModules
 import com.blackbox.android.worker.CleanupWorker
 import com.blackbox.android.worker.DailySummaryWorker
+import com.blackbox.android.worker.GeocodingRetryWorker
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
@@ -36,5 +37,6 @@ class BlackBoxApplication : Application() {
     private fun scheduleWorkers() {
         DailySummaryWorker.schedule(this)
         CleanupWorker.schedule(this)
+        GeocodingRetryWorker.schedule(this)
     }
 }

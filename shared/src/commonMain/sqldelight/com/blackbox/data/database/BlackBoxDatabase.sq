@@ -200,6 +200,25 @@ deleteLocationsInRange:
 DELETE FROM LocationRecord
 WHERE timestamp BETWEEN ? AND ?;
 
+getLocationsWithoutAddress:
+SELECT * FROM LocationRecord
+WHERE address IS NULL
+ORDER BY timestamp DESC;
+
+updateLocationAddress:
+UPDATE LocationRecord
+SET address = ?
+WHERE id = ?;
+
+getRecordById:
+SELECT * FROM BlackBoxRecord
+WHERE id = ?;
+
+updateRecordDataJson:
+UPDATE BlackBoxRecord
+SET data_json = ?
+WHERE id = ?;
+
 -- ============================================================
 -- Daily Summary Queries
 -- ============================================================
