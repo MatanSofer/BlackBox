@@ -61,6 +61,16 @@ fun RawRecordRow(
     }
 }
 
+/** Converts a raw package name to a readable label; leaves real app names unchanged. */
+private fun cleanPackageName(name: String): String {
+    val looksLikePackage = name.contains('.') &&
+        name.none { it == ' ' } &&
+        name.all { it.isLetterOrDigit() || it == '.' || it == '_' || it == '-' } &&
+        name.first().isLowerCase()
+    return if (looksLikePackage) name.substringAfterLast('.').replaceFirstChar { it.uppercaseChar() }
+    else name
+}
+
 /**
  * Extracts a short human-readable summary from a [RecordData] payload.
  *
@@ -88,7 +98,8 @@ private fun summarise(data: RecordData): String = when (data) {
         "${data.screenStateData.state.name}$brightness"
     }
     is RecordData.AppUsage -> {
-        data.appUsageData.foregroundApp
+        val name = data.appUsageData.displayName.ifBlank { data.appUsageData.foregroundApp }
+        cleanPackageName(name)
     }
     is RecordData.AudioLevel -> {
         "${"%.1f".format(data.audioLevelData.dbLevel)} dB"

@@ -186,12 +186,33 @@ class GetInsightsBriefUseCase(
         records
             .mapNotNull { (it.data as? RecordData.AppUsage)?.appUsageData }
             .filter { !it.isSystemApp && it.displayName.isNotBlank() }
-            .groupBy { it.displayName }
+            .groupBy { cleanAppDisplayName(it.displayName) }
             .mapValues { (_, entries) -> entries.sumOf { it.sessionDurationMs } / 60_000L }
             .entries
             .sortedByDescending { it.value }
             .take(limit)
             .map { AppUsageStat(displayName = it.key, totalMinutes = it.value) }
+
+    /**
+     * Cleans up a display name that may be a raw package name (e.g. "com.google.android.youtube").
+     *
+     * Package names are all-lowercase with dots and no spaces. When PackageManager cannot
+     * resolve a label (e.g. the app was uninstalled), the collector stores the package name
+     * as the display name. This function converts it to something readable:
+     * "com.google.android.youtube" → "Youtube", "com.whatsapp" → "Whatsapp".
+     */
+    private fun cleanAppDisplayName(name: String): String {
+        // Real app names have spaces, mixed case, or non-package characters
+        val looksLikePackageName = name.contains('.') &&
+            name.none { it == ' ' } &&
+            name.all { it.isLetterOrDigit() || it == '.' || it == '_' || it == '-' } &&
+            name.first().isLowerCase()
+
+        if (!looksLikePackageName) return name
+
+        // Take the last dot-segment and capitalize: "com.google.android.youtube" → "Youtube"
+        return name.substringAfterLast('.').replaceFirstChar { it.uppercaseChar() }
+    }
 
     private fun aggregateTopPlaces(
         locations: List<LocationEntry>,
