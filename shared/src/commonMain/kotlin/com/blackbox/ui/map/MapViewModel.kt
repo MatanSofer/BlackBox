@@ -2,6 +2,7 @@ package com.blackbox.ui.map
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.blackbox.domain.repository.RecordRepository
 import com.blackbox.domain.usecase.map.GetDayLocationSummaryUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -32,6 +33,7 @@ import java.util.Locale
  */
 class MapViewModel(
     private val getDayLocationSummaryUseCase: GetDayLocationSummaryUseCase,
+    private val recordRepository: RecordRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MapContract.State())
@@ -50,6 +52,14 @@ class MapViewModel(
         val today = dateFormat.format(Date())
         _state.update { it.copy(selectedDate = today, isLoading = true) }
         observeLocationSummary()
+        loadAvailableDates()
+    }
+
+    private fun loadAvailableDates() {
+        viewModelScope.launch {
+            runCatching { recordRepository.getDatesWithData() }
+                .onSuccess { dates -> _state.update { it.copy(availableDates = dates.toSet()) } }
+        }
     }
 
     /**
@@ -60,11 +70,15 @@ class MapViewModel(
             is MapContract.Action.PreviousDay -> handlePreviousDay()
             is MapContract.Action.NextDay -> handleNextDay()
             is MapContract.Action.DateSelected ->
-                _state.update { it.copy(selectedDate = action.date, isLoading = true, selectedStay = null) }
+                _state.update { it.copy(selectedDate = action.date, isLoading = true, selectedStay = null, showDatePicker = false) }
             is MapContract.Action.StayTapped ->
                 _state.update { it.copy(selectedStay = action.stay) }
             is MapContract.Action.Refresh ->
                 _state.update { it.copy(isLoading = true, selectedStay = null) }
+            is MapContract.Action.ShowDatePicker ->
+                _state.update { it.copy(showDatePicker = true) }
+            is MapContract.Action.DismissDatePicker ->
+                _state.update { it.copy(showDatePicker = false) }
         }
     }
 

@@ -132,6 +132,15 @@ class RecordRepositoryImpl(
         }
     }
 
+    override suspend fun getDatesWithData(): List<String> {
+        return withContext(Dispatchers.IO) {
+            database.blackBoxDatabaseQueries
+                .getDatesWithData()
+                .executeAsList()
+                .filterNotNull()
+        }
+    }
+
     companion object {
         private const val TAG = "RecordRepository"
     }

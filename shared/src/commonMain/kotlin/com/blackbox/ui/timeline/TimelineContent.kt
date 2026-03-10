@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +39,7 @@ import com.blackbox.domain.model.timeline.TimelineEntryType
 import com.blackbox.ui.common.EmptyStateView
 import com.blackbox.ui.common.ErrorView
 import com.blackbox.ui.common.LoadingIndicator
+import com.blackbox.ui.common.ObsidianDatePickerDialog
 import com.blackbox.ui.theme.BlackBoxColors
 import com.blackbox.ui.theme.BlackBoxTheme
 import com.blackbox.ui.theme.Dimens
@@ -62,12 +64,23 @@ fun TimelineContent(
     onAction: (TimelineContract.Action) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Date picker dialog — shown as an overlay when triggered
+    if (state.showDatePicker) {
+        ObsidianDatePickerDialog(
+            selectedDate = state.selectedDate,
+            availableDates = state.availableDates,
+            onDateSelected = { date -> onAction(TimelineContract.Action.DateSelected(date)) },
+            onDismiss = { onAction(TimelineContract.Action.DismissDatePicker) },
+        )
+    }
+
     Column(modifier = modifier.fillMaxSize()) {
         // Day navigation header
         DayNavigationHeader(
             selectedDate = state.selectedDate,
             onPrevious = { onAction(TimelineContract.Action.PreviousDay) },
             onNext = { onAction(TimelineContract.Action.NextDay) },
+            onOpenPicker = { onAction(TimelineContract.Action.ShowDatePicker) },
         )
 
         when {
@@ -118,6 +131,7 @@ private fun DayNavigationHeader(
     selectedDate: String,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    onOpenPicker: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val (dayName, dayNum, monthYear) = parseDateParts(selectedDate)
@@ -137,8 +151,11 @@ private fun DayNavigationHeader(
             )
         }
 
-        // Date display
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // Tappable date display — opens the full date picker
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.clickable(onClick = onOpenPicker),
+        ) {
             Text(
                 text = dayName,
                 style = MaterialTheme.typography.labelMedium,
@@ -151,8 +168,8 @@ private fun DayNavigationHeader(
             )
             Text(
                 text = monthYear,
-                style = MaterialTheme.typography.labelMedium,
-                color = BlackBoxColors.TextTertiary,
+                style = MaterialTheme.typography.labelSmall,
+                color = BlackBoxColors.Indigo,
             )
         }
 

@@ -3,6 +3,7 @@ package com.blackbox.ui.timeline
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.blackbox.domain.model.record.CollectorType
+import com.blackbox.domain.repository.RecordRepository
 import com.blackbox.domain.repository.SettingsRepository
 import com.blackbox.domain.usecase.timeline.GetCollectorGroupsUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -39,6 +40,7 @@ import java.util.Locale
 class TimelineViewModel(
     private val getCollectorGroupsUseCase: GetCollectorGroupsUseCase,
     private val settingsRepository: SettingsRepository,
+    private val recordRepository: RecordRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(TimelineContract.State())
@@ -57,6 +59,14 @@ class TimelineViewModel(
         val today = dateFormat.format(Date())
         _state.update { it.copy(selectedDate = today, isLoading = true) }
         observeTimeline()
+        loadAvailableDates()
+    }
+
+    private fun loadAvailableDates() {
+        viewModelScope.launch {
+            runCatching { recordRepository.getDatesWithData() }
+                .onSuccess { dates -> _state.update { it.copy(availableDates = dates.toSet()) } }
+        }
     }
 
     /**
@@ -129,13 +139,15 @@ class TimelineViewModel(
                 _state.value.selectedDate, _state.value.showAllCollectors,
             )
             is TimelineContract.Action.GroupToggled -> handleGroupToggled(action.collectorType)
+            is TimelineContract.Action.ShowDatePicker -> _state.update { it.copy(showDatePicker = true) }
+            is TimelineContract.Action.DismissDatePicker -> _state.update { it.copy(showDatePicker = false) }
         }
     }
 
     private fun handleDateSelected(date: String) {
         // Updating selectedDate causes the flatMapLatest in observeTimeline() to
         // cancel the current observation and restart it for the new date.
-        _state.update { it.copy(selectedDate = date, isLoading = true) }
+        _state.update { it.copy(selectedDate = date, isLoading = true, showDatePicker = false) }
     }
 
     private fun handlePreviousDay() {

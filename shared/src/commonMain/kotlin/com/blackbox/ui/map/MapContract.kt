@@ -18,12 +18,18 @@ object MapContract {
      * @property selectedStay The stay dot currently tapped by the user, or null.
      * @property error Error message to display, or null.
      */
+    /**
+     * @property availableDates   Dates that have location records; used to grey out empty days in the picker.
+     * @property showDatePicker   Whether the date picker dialog is visible.
+     */
     data class State(
         val selectedDate: String = "",
         val isLoading: Boolean = false,
         val summary: DayLocationSummary? = null,
         val selectedStay: LocationStay? = null,
         val error: String? = null,
+        val availableDates: Set<String> = emptySet(),
+        val showDatePicker: Boolean = false,
     )
 
     /**
@@ -40,6 +46,10 @@ object MapContract {
         data class StayTapped(val stay: LocationStay?) : Action
         /** Reload location data for the current date. */
         data object Refresh : Action
+        /** User tapped the date pill to open the picker. */
+        data object ShowDatePicker : Action
+        /** User dismissed the date picker without selecting. */
+        data object DismissDatePicker : Action
     }
 
     /**

@@ -165,6 +165,11 @@ WHERE created_at < ?;
 getTotalRecordCount:
 SELECT COUNT(*) FROM BlackBoxRecord;
 
+getDatesWithData:
+SELECT DISTINCT strftime('%Y-%m-%d', timestamp / 1000, 'unixepoch', 'localtime') AS date
+FROM BlackBoxRecord
+ORDER BY date DESC;
+
 -- ============================================================
 -- Location Queries
 -- ============================================================

@@ -55,4 +55,10 @@ interface RecordRepository {
 
     /** Deletes all records older than the given timestamp. */
     suspend fun deleteRecordsOlderThan(cutoffTimestamp: Long)
+
+    /**
+     * Returns all distinct local dates (yyyy-MM-dd) that have at least one record,
+     * ordered from most recent to oldest.
+     */
+    suspend fun getDatesWithData(): List<String>
 }

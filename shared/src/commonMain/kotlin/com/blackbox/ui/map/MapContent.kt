@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +40,7 @@ import com.blackbox.domain.model.map.LocationStay
 import com.blackbox.ui.common.EmptyStateView
 import com.blackbox.ui.common.ErrorView
 import com.blackbox.ui.common.LoadingIndicator
+import com.blackbox.ui.common.ObsidianDatePickerDialog
 import com.blackbox.ui.theme.BlackBoxColors
 import com.blackbox.ui.theme.BlackBoxTheme
 import com.blackbox.ui.theme.Dimens
@@ -66,6 +68,16 @@ fun MapContent(
     onAction: (MapContract.Action) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Date picker dialog — shown as an overlay when triggered
+    if (state.showDatePicker) {
+        ObsidianDatePickerDialog(
+            selectedDate = state.selectedDate,
+            availableDates = state.availableDates,
+            onDateSelected = { date -> onAction(MapContract.Action.DateSelected(date)) },
+            onDismiss = { onAction(MapContract.Action.DismissDatePicker) },
+        )
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -99,6 +111,7 @@ fun MapContent(
                 selectedDate = state.selectedDate,
                 onPrevious = { onAction(MapContract.Action.PreviousDay) },
                 onNext = { onAction(MapContract.Action.NextDay) },
+                onOpenPicker = { onAction(MapContract.Action.ShowDatePicker) },
             )
             Spacer(modifier = Modifier.weight(1f))
             MapBottomPanel(
@@ -117,6 +130,7 @@ private fun MapDateBar(
     selectedDate: String,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    onOpenPicker: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -148,6 +162,7 @@ private fun MapDateBar(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .background(BlackBoxColors.SurfaceVariant, RoundedCornerShape(Dimens.RadiusFull))
+                .clickable(onClick = onOpenPicker)
                 .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingXs),
         ) {
             Icon(
