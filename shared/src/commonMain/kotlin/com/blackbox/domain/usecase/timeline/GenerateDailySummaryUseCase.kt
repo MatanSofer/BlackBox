@@ -2,6 +2,7 @@ package com.blackbox.domain.usecase.timeline
 
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.RecordData
+import com.blackbox.domain.model.record.ScreenState
 import com.blackbox.domain.model.timeline.AppUsageSummary
 import com.blackbox.domain.model.timeline.DailySummary
 import com.blackbox.domain.repository.LocationRepository
@@ -103,7 +104,7 @@ class GenerateDailySummaryUseCase(
                 totalSteps = totalSteps,
                 totalDistanceMeters = totalDistance,
                 screenOnCount = screenOnCount,
-                totalScreenTimeMinutes = 0, // Would require paired on/off analysis
+                totalScreenTimeMinutes = computeScreenMinutes(screenRecords, dayEndMs),
                 mostUsedApps = mostUsedApps,
                 activityBreakdown = activityBreakdown,
                 noiseAvgDb = noiseAvgDb,
@@ -117,6 +118,38 @@ class GenerateDailySummaryUseCase(
             logger.d(TAG, "Summary saved for $date: ${allRecords.size} records processed")
             summary
         }
+    }
+
+    /**
+     * Computes total screen-on minutes by pairing SCREEN_ON → SCREEN_OFF events.
+     * An ON event without a matching OFF is closed against [windowEndMs].
+     */
+    private fun computeScreenMinutes(
+        records: List<com.blackbox.domain.model.record.CollectedRecord>,
+        windowEndMs: Long,
+    ): Int {
+        var totalMs = 0L
+        var lastOnMs: Long? = null
+
+        records.sortedBy { it.timestamp }.forEach { record ->
+            val state = (record.data as? RecordData.ScreenState)?.screenStateData?.state
+            when (state) {
+                ScreenState.ON, ScreenState.UNLOCKED -> {
+                    if (lastOnMs == null) lastOnMs = record.timestamp
+                }
+                ScreenState.OFF, ScreenState.LOCKED -> {
+                    lastOnMs?.let { onMs ->
+                        totalMs += record.timestamp - onMs
+                        lastOnMs = null
+                    }
+                }
+                else -> Unit
+            }
+        }
+        // Screen still on at end of day window
+        lastOnMs?.let { totalMs += windowEndMs - it }
+
+        return (totalMs / 60_000L).toInt()
     }
 
     private fun computeTotalDistance(
