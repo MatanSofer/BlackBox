@@ -50,8 +50,9 @@ class DetectSleepSessionsUseCase(
         val morning = LocalDate.parse(morningDate)
         val prevDay = morning.minus(1, DateTimeUnit.DAY)
 
-        // Window: prev day 20:00 → morning 10:00
-        val windowStartMs = prevDay.atStartOfDayIn(tz).toEpochMilliseconds() + HOUR_MS * 20
+        // Window: prev day 22:00 → morning 10:00 (12h window)
+        // Starting at 22:00 avoids counting idle evening screen-off time as sleep.
+        val windowStartMs = prevDay.atStartOfDayIn(tz).toEpochMilliseconds() + HOUR_MS * 22
         val windowEndMs = morning.atStartOfDayIn(tz).toEpochMilliseconds() + HOUR_MS * 10
         val nowMs = Clock.System.now().toEpochMilliseconds()
 
@@ -140,12 +141,15 @@ class DetectSleepSessionsUseCase(
             .maxByOrNull { (start, end) -> end - start }
             ?: return null
 
-        val durationMs = sleepPeriod.second - sleepPeriod.first
+        // Cap at MAX_SLEEP_MS by trimming the start, keeping the wake time accurate.
+        // This prevents idle evening screen-off time from inflating the duration.
+        val effectiveStart = maxOf(sleepPeriod.first, sleepPeriod.second - MAX_SLEEP_MS)
+        val durationMs = sleepPeriod.second - effectiveStart
         val durationMinutes = (durationMs / 60_000L).toInt()
 
         return SleepSession(
             date = "",  // caller fills this in
-            sleepStart = sleepPeriod.first,
+            sleepStart = effectiveStart,
             wakeTime = sleepPeriod.second,
             durationMs = durationMs,
             durationMinutes = durationMinutes,
@@ -167,6 +171,10 @@ class DetectSleepSessionsUseCase(
 
         /** Minimum continuous screen-off duration to count as sleep (3 hours). */
         private const val MIN_SLEEP_MS = 3 * HOUR_MS
+
+        /** Maximum plausible sleep duration (10 hours). Longer sessions are trimmed
+         *  from the start, keeping the wake time accurate. */
+        private const val MAX_SLEEP_MS = 10 * HOUR_MS
 
         /** Max gap between off-periods to still be considered one session (30 min). */
         private const val MERGE_GAP_MS = 30 * 60 * 1_000L

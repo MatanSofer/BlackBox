@@ -6,8 +6,12 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,8 +29,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -341,6 +351,9 @@ private fun SleepTrendCard(
     avg: Int,
     modifier: Modifier = Modifier,
 ) {
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+    val selectedSession = selectedIndex?.let { trend.getOrNull(it) }
+
     val qualityLabel = lastNight?.let {
         when (it.quality) {
             SleepQuality.POOR -> "Poor"
@@ -350,18 +363,76 @@ private fun SleepTrendCard(
         }
     }
     val subtitle = when {
-        lastNight != null -> "last night ${formatMinutes(lastNight.durationMinutes)} · ${qualityLabel!!}"
-        avg > 0           -> "avg ${formatMinutes(avg)}/night"
-        else              -> "no data yet"
+        selectedSession != null -> "${selectedSession.date.dayAbbrev()}  ${formatMinutes(selectedSession.durationMinutes)}"
+        lastNight != null       -> "last night ${formatMinutes(lastNight.durationMinutes)} · ${qualityLabel!!}"
+        avg > 0                 -> "avg ${formatMinutes(avg)}/night"
+        else                    -> "no data yet"
     }
+
     TrendCard(
         title = "Sleep",
         subtitle = subtitle,
         barValues = trend.map { it.durationMinutes.toFloat() },
         barLabels = trend.map { it.date.dayAbbrev() },
         barColor = BlackBoxColors.AccentScreen,
+        selectedBarIndex = selectedIndex,
+        onBarTapped = { index ->
+            selectedIndex = if (selectedIndex == index) null else index
+        },
+        detailContent = selectedSession?.let { session ->
+            { SleepSessionDetail(session = session) }
+        },
         modifier = modifier,
     )
+}
+
+@Composable
+private fun SleepSessionDetail(session: SleepSession, modifier: Modifier = Modifier) {
+    val timeFormat = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(BlackBoxColors.SurfaceElevated, RoundedCornerShape(Dimens.RadiusSm))
+            .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingSm),
+        verticalArrangement = Arrangement.spacedBy(Dimens.SpacingXxs),
+    ) {
+        SleepDetailRow(
+            label = "Bedtime",
+            value = if (session.sleepStart > 0L) timeFormat.format(Date(session.sleepStart)) else "—",
+        )
+        SleepDetailRow(
+            label = "Wake time",
+            value = if (session.wakeTime > 0L) timeFormat.format(Date(session.wakeTime)) else "—",
+        )
+        SleepDetailRow(
+            label = "Duration",
+            value = formatMinutes(session.durationMinutes),
+            valueColor = BlackBoxColors.TextPrimary,
+        )
+    }
+}
+
+@Composable
+private fun SleepDetailRow(
+    label: String,
+    value: String,
+    valueColor: Color = BlackBoxColors.AccentScreen,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = BlackBoxColors.TextTertiary,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = valueColor,
+        )
+    }
 }
 
 @Composable
@@ -372,6 +443,9 @@ private fun TrendCard(
     barLabels: List<String>,
     barColor: Color,
     modifier: Modifier = Modifier,
+    selectedBarIndex: Int? = null,
+    onBarTapped: ((Int) -> Unit)? = null,
+    detailContent: (@Composable () -> Unit)? = null,
 ) {
     Column(
         modifier = modifier
@@ -408,10 +482,21 @@ private fun TrendCard(
                 values = barValues,
                 labels = barLabels,
                 barColor = barColor,
+                selectedBarIndex = selectedBarIndex,
+                onBarTapped = onBarTapped,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(72.dp),
             )
+        }
+
+        // Optional expandable detail panel (used by SleepTrendCard)
+        AnimatedVisibility(
+            visible = detailContent != null,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+        ) {
+            detailContent?.invoke()
         }
     }
 }
@@ -422,28 +507,50 @@ private fun GradientBarChart(
     labels: List<String>,
     barColor: Color,
     modifier: Modifier = Modifier,
+    selectedBarIndex: Int? = null,
+    onBarTapped: ((Int) -> Unit)? = null,
 ) {
     val max = values.maxOrNull()?.coerceAtLeast(1f) ?: 1f
     val gradient = barGradient(barColor)
+    val dimColor = barColor.copy(alpha = 0.2f)
+
+    val density = LocalDensity.current
+    val gapPx = with(density) { 4.dp.toPx() }
+    var canvasWidthPx by remember { mutableStateOf(0f) }
 
     Column(modifier = modifier) {
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .weight(1f)
+                .onSizeChanged { canvasWidthPx = it.width.toFloat() }
+                .then(
+                    if (onBarTapped != null) {
+                        Modifier.pointerInput(values.size, canvasWidthPx) {
+                            detectTapGestures { offset ->
+                                val count = values.size
+                                if (count == 0 || canvasWidthPx <= 0f) return@detectTapGestures
+                                val barWidth = (canvasWidthPx - gapPx * (count - 1)) / count
+                                val index = (offset.x / (barWidth + gapPx))
+                                    .toInt()
+                                    .coerceIn(0, count - 1)
+                                onBarTapped(index)
+                            }
+                        }
+                    } else Modifier,
+                ),
         ) {
             if (values.isEmpty()) return@Canvas
             val count = values.size
-            val gap = 4.dp.toPx()
-            val totalGaps = gap * (count - 1)
-            val barWidth = (size.width - totalGaps) / count
+            val barWidth = (size.width - gapPx * (count - 1)) / count
             val corner = CornerRadius(4.dp.toPx())
 
             values.forEachIndexed { i, value ->
                 val ratio = value / max
                 val barHeight = (size.height * ratio).coerceAtLeast(2.dp.toPx())
-                val x = i * (barWidth + gap)
+                val x = i * (barWidth + gapPx)
                 val y = size.height - barHeight
+                val isSelected = selectedBarIndex == null || selectedBarIndex == i
 
                 // Track (background bar)
                 drawRoundRect(
@@ -452,13 +559,22 @@ private fun GradientBarChart(
                     size = Size(barWidth, size.height),
                     cornerRadius = corner,
                 )
-                // Gradient fill
+                // Gradient fill — dim unselected bars
                 drawRoundRect(
-                    brush = gradient,
+                    brush = if (isSelected) gradient
+                        else Brush.verticalGradient(listOf(dimColor, dimColor)),
                     topLeft = Offset(x, y),
                     size = Size(barWidth, barHeight),
                     cornerRadius = corner,
                 )
+                // Dot indicator on selected bar
+                if (selectedBarIndex == i) {
+                    drawCircle(
+                        color = barColor,
+                        radius = 3.dp.toPx(),
+                        center = Offset(x + barWidth / 2, y - 6.dp.toPx()),
+                    )
+                }
             }
         }
 
@@ -466,11 +582,14 @@ private fun GradientBarChart(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            labels.forEach { label ->
+            labels.forEachIndexed { i, label ->
                 Text(
                     text = label,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = BlackBoxColors.TextTertiary,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 10.sp,
+                        fontWeight = if (selectedBarIndex == i) FontWeight.Bold else FontWeight.Normal,
+                    ),
+                    color = if (selectedBarIndex == i) barColor else BlackBoxColors.TextTertiary,
                 )
             }
         }
