@@ -50,14 +50,17 @@ class DetectSleepSessionsUseCase(
         val morning = LocalDate.parse(morningDate)
         val prevDay = morning.minus(1, DateTimeUnit.DAY)
 
-        // Window: prev day 22:00 → morning 10:00 (12h window)
-        // Starting at 22:00 avoids counting idle evening screen-off time as sleep.
-        val windowStartMs = prevDay.atStartOfDayIn(tz).toEpochMilliseconds() + HOUR_MS * 22
-        val windowEndMs = morning.atStartOfDayIn(tz).toEpochMilliseconds() + HOUR_MS * 10
         val nowMs = Clock.System.now().toEpochMilliseconds()
 
+        // Window: prev day 22:00 → morning 12:00 (noon).
+        // End at noon instead of 10am to capture wake times up to midday.
+        // For today the query is bounded by nowMs so we don't fetch future records.
+        val windowStartMs = prevDay.atStartOfDayIn(tz).toEpochMilliseconds() + HOUR_MS * 22
+        val windowEndMs = morning.atStartOfDayIn(tz).toEpochMilliseconds() + HOUR_MS * 12
+        val queryEndMs = minOf(windowEndMs, nowMs)
+
         val records = recordRepository.getRecordsByTypeInRange(
-            CollectorType.SCREEN_STATE, windowStartMs, windowEndMs,
+            CollectorType.SCREEN_STATE, windowStartMs, queryEndMs,
         )
 
         logger.d(TAG, "Detecting sleep for $morningDate — ${records.size} screen records in window")
@@ -112,9 +115,15 @@ class DetectSleepSessionsUseCase(
             }
         }
 
-        // Screen still off at window boundary — close against now or window end
-        offSinceMs?.let { startMs ->
-            offPeriods.add(startMs to minOf(nowMs, windowEndMs))
+        // Only close an unmatched OFF period if this is TODAY and the screen is
+        // currently still off (user is somehow viewing the app — edge case).
+        // For past days: if there is no confirmed SCREEN_ON event we do NOT guess
+        // a wake time, because it means either the user woke after noon (outside
+        // window) or the service missed the event. Returning null is more honest
+        // than fabricating a 10am wake time every day.
+        if (offSinceMs != null && nowMs < windowEndMs) {
+            // Today: screen still off right now — close at current time
+            offPeriods.add(offSinceMs!! to nowMs)
         }
 
         if (offPeriods.isEmpty()) return null
