@@ -62,6 +62,7 @@ class SearchViewModel(
             is SearchContract.Action.SuggestionClicked -> handleSuggestion(action.query)
             is SearchContract.Action.ClearResults -> handleClearResults()
             is SearchContract.Action.DismissError -> handleDismissError()
+            is SearchContract.Action.VoiceInputResult -> handleVoiceInputResult(action.text)
         }
     }
 
@@ -152,6 +153,12 @@ class SearchViewModel(
 
     private fun handleDismissError() {
         _state.update { it.copy(error = null) }
+    }
+
+    /** Sets the query from voice recognition and submits it immediately. */
+    private fun handleVoiceInputResult(text: String) {
+        _state.update { it.copy(query = text) }
+        handleSubmitQuery()
     }
 
     private fun loadRecentQueries() {

@@ -26,7 +26,7 @@ val viewModelModule = module {
     viewModel { SearchViewModel(get(), get(), get()) }
     viewModel { TimelineViewModel(get(), get(), get()) }
     viewModel { InsightsViewModel(get(), get()) }
-    viewModel { MapViewModel(get(), get()) }
+    viewModel { MapViewModel(get(), get(), get(), get()) }
     viewModel {
         val context = androidContext()
         val appUsageCollector = get<AppUsageCollector>()

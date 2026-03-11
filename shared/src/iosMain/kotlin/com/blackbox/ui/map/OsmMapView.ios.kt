@@ -13,6 +13,7 @@ actual fun OsmMapView(
     stays: List<LocationStay>,
     selectedStay: LocationStay?,
     onStayTapped: (LocationStay?) -> Unit,
+    playbackStay: LocationStay?,
     modifier: Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

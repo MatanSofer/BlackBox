@@ -9,7 +9,7 @@ import com.blackbox.domain.model.map.LocationStay
  *
  * Android: embeds an [org.osmdroid.views.MapView] via [AndroidView], with one
  * circular dot per [LocationStay]. Dot size scales with stay duration; the
- * selected stay is highlighted in neon magenta.
+ * selected stay is highlighted in rose.
  *
  * iOS: stub placeholder (not yet implemented).
  *
@@ -17,6 +17,9 @@ import com.blackbox.domain.model.map.LocationStay
  * @param selectedStay The currently selected stay, or null if none.
  * @param onStayTapped Called when the user taps a dot (the tapped stay) or
  *   the map background (null, to deselect).
+ * @param playbackStay When route playback is active, the stay the camera should
+ *   animate to. Distinct from [selectedStay] to allow smooth camera animation
+ *   without triggering a full bounds-fit.
  * @param modifier Modifier applied to the map container.
  */
 @Composable
@@ -24,5 +27,6 @@ expect fun OsmMapView(
     stays: List<LocationStay>,
     selectedStay: LocationStay?,
     onStayTapped: (LocationStay?) -> Unit,
+    playbackStay: LocationStay? = null,
     modifier: Modifier = Modifier,
 )

@@ -10,6 +10,7 @@ import com.blackbox.domain.usecase.insight.GenerateInsightObservationsUseCase
 import com.blackbox.domain.usecase.insight.GetInsightsBriefUseCase
 import com.blackbox.domain.usecase.place.DetectKnownPlacesUseCase
 import com.blackbox.domain.usecase.place.GetPlacesUseCase
+import com.blackbox.domain.usecase.place.SavePlaceUseCase
 import com.blackbox.data.query.QueryContextFormatter
 import com.blackbox.domain.usecase.query.GetRecentQueriesUseCase
 import com.blackbox.domain.usecase.query.ProcessQueryUseCase
@@ -59,6 +60,7 @@ val useCaseModule = module {
     // Place use cases
     single { GetPlacesUseCase(get(), get()) }
     single { DetectKnownPlacesUseCase(get(), get(), get()) }
+    single { SavePlaceUseCase(get(), get()) }
 
     // Insight use cases
     single { GetInsightsBriefUseCase(get(), get(), get(), get(), get()) }

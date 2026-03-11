@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Splash screen icon — displayed centred on the obsidian background.
+    The system draws a circular clip around this drawable (Android 12+),
+    so the design intentionally fills most of the canvas with breathing room.
+
+    Left  B → Indigo  (#818CF8)
+    Right B → Teal    (#2DD4BF)
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- ── Left B  (Indigo) ── -->
+    <!-- Spine -->
+    <path
+        android:strokeColor="#818CF8"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M20,18 L20,90" />
+    <!-- Top bump -->
+    <path
+        android:strokeColor="#818CF8"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M20,18 L33,18 Q47,18 47,32 Q47,46 33,46 L20,46" />
+    <!-- Bottom bump (slightly wider) -->
+    <path
+        android:strokeColor="#818CF8"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M20,46 L35,46 Q52,46 52,64 Q52,82 35,82 L20,82" />
+    <!-- Continuation of spine below lower bump -->
+    <path
+        android:strokeColor="#818CF8"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M20,82 L20,90" />
+
+    <!-- ── Right B  (Teal) ── -->
+    <!-- Spine -->
+    <path
+        android:strokeColor="#2DD4BF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M62,18 L62,90" />
+    <!-- Top bump -->
+    <path
+        android:strokeColor="#2DD4BF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M62,18 L75,18 Q89,18 89,32 Q89,46 75,46 L62,46" />
+    <!-- Bottom bump (slightly wider) -->
+    <path
+        android:strokeColor="#2DD4BF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M62,46 L77,46 Q94,46 94,64 Q94,82 77,82 L62,82" />
+    <!-- Continuation of spine below lower bump -->
+    <path
+        android:strokeColor="#2DD4BF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M62,82 L62,90" />
+
+</vector>

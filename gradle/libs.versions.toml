@@ -20,6 +20,7 @@ androidx-core = "1.17.0"
 androidx-lifecycle = "2.9.6"
 androidx-work = "2.10.0"
 androidx-biometric = "1.4.0-alpha02"
+androidx-splashscreen = "1.0.1"
 
 # KotlinX
 kotlinx-coroutines = "1.9.0"
@@ -69,6 +70,7 @@ androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref
 
 # AndroidX Biometric
 androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "androidx-biometric" }
+androidx-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "androidx-splashscreen" }
 
 # Compose (JetBrains Compose Multiplatform)
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composeMultiplatform" }
@@ -79,6 +81,7 @@ compose-uiTooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.re
 compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 compose-material-icons-core = { module = "org.jetbrains.compose.material:material-icons-core", version = "1.7.3" }
+compose-material-icons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version = "1.7.3" }
 
 # KotlinX Coroutines
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }

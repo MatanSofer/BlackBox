@@ -53,6 +53,8 @@ object SearchContract {
         data object ClearResults : Action
         /** User dismissed the error. */
         data object DismissError : Action
+        /** Voice recognition returned a transcribed query. */
+        data class VoiceInputResult(val text: String) : Action
     }
 
     /**

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+        Splash-screen theme applied to MainActivity.
+        postSplashScreenTheme must match the activity's normal theme so that
+        once the splash is dismissed the window decoration does not flash.
+    -->
+    <style name="Theme.BlackBox.Splash" parent="Theme.SplashScreen">
+        <!-- Obsidian background fills the whole screen -->
+        <item name="windowSplashScreenBackground">#0A0A0F</item>
+        <!-- BB lettermark icon centred in the splash circle -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
+        <!-- Dark-surface colour behind the icon circle -->
+        <item name="windowSplashScreenIconBackgroundColor">#111118</item>
+        <!-- Theme to restore after splash dismisses -->
+        <item name="postSplashScreenTheme">@android:style/Theme.Material.Light.NoActionBar</item>
+    </style>
+
+</resources>

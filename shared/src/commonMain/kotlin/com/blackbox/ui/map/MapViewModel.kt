@@ -2,9 +2,14 @@ package com.blackbox.ui.map
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.blackbox.domain.model.place.KnownPlace
 import com.blackbox.domain.repository.RecordRepository
 import com.blackbox.domain.usecase.map.GetDayLocationSummaryUseCase
+import com.blackbox.domain.usecase.place.GetPlacesUseCase
+import com.blackbox.domain.usecase.place.SavePlaceUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -24,16 +29,18 @@ import java.util.Locale
 /**
  * ViewModel for the Map screen.
  *
- * Manages day-based navigation and a reactive location summary stream.
- * When the selected date changes, the [GetDayLocationSummaryUseCase.observe]
- * flow is restarted for the new day so the map updates automatically as the
- * background service writes new location fixes.
+ * Manages day-based navigation, a reactive location summary stream,
+ * a known-places list, and a route-playback animation.
  *
- * @property getDayLocationSummaryUseCase Use case that clusters GPS fixes into stays.
+ * @property getDayLocationSummaryUseCase Clusters GPS fixes into stays.
+ * @property recordRepository Provides dates with recorded data.
+ * @property getPlacesUseCase Loads all known places for the Places tab.
  */
 class MapViewModel(
     private val getDayLocationSummaryUseCase: GetDayLocationSummaryUseCase,
     private val recordRepository: RecordRepository,
+    private val getPlacesUseCase: GetPlacesUseCase,
+    private val savePlaceUseCase: SavePlaceUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MapContract.State())
@@ -47,6 +54,9 @@ class MapViewModel(
     val events: SharedFlow<MapContract.Event> = _events.asSharedFlow()
 
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+
+    /** Tracks the running playback coroutine so it can be cancelled cleanly. */
+    private var playbackJob: Job? = null
 
     init {
         val today = dateFormat.format(Date())
@@ -79,6 +89,21 @@ class MapViewModel(
                 _state.update { it.copy(showDatePicker = true) }
             is MapContract.Action.DismissDatePicker ->
                 _state.update { it.copy(showDatePicker = false) }
+            is MapContract.Action.SwitchMode -> handleSwitchMode(action.mode)
+            is MapContract.Action.StartRoutePlayback -> handleStartPlayback()
+            is MapContract.Action.StopRoutePlayback -> handleStopPlayback()
+            is MapContract.Action.OpenAddPlaceDialog -> handleOpenAddPlaceDialog()
+            is MapContract.Action.DismissAddPlaceDialog ->
+                _state.update { it.copy(addPlaceDialog = null) }
+            is MapContract.Action.AddPlaceNameChanged ->
+                _state.update { it.copy(addPlaceDialog = it.addPlaceDialog?.copy(name = action.name)) }
+            is MapContract.Action.AddPlaceCategoryChanged ->
+                _state.update { it.copy(addPlaceDialog = it.addPlaceDialog?.copy(category = action.category)) }
+            is MapContract.Action.AddPlaceLatChanged ->
+                _state.update { it.copy(addPlaceDialog = it.addPlaceDialog?.copy(latText = action.text)) }
+            is MapContract.Action.AddPlaceLngChanged ->
+                _state.update { it.copy(addPlaceDialog = it.addPlaceDialog?.copy(lngText = action.text)) }
+            is MapContract.Action.ConfirmAddPlace -> handleConfirmAddPlace()
         }
     }
 
@@ -110,7 +135,96 @@ class MapViewModel(
         }
     }
 
+    private fun handleOpenAddPlaceDialog() {
+        val lastStay = _state.value.summary?.stays?.lastOrNull()
+        val lat = lastStay?.latitude ?: 0.0
+        val lng = lastStay?.longitude ?: 0.0
+        _state.update {
+            it.copy(
+                addPlaceDialog = MapContract.AddPlaceDialogState(
+                    latText = "%.6f".format(lat),
+                    lngText = "%.6f".format(lng),
+                ),
+            )
+        }
+    }
+
+    private fun handleConfirmAddPlace() {
+        val dialog = _state.value.addPlaceDialog ?: return
+        if (!dialog.isValid) return
+
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val place = KnownPlace(
+                name = dialog.name.trim(),
+                latitude = dialog.latText.toDouble(),
+                longitude = dialog.lngText.toDouble(),
+                category = dialog.category,
+                isAutoDetected = false,
+                createdAt = now,
+                updatedAt = now,
+            )
+            savePlaceUseCase(place)
+                .onSuccess {
+                    _state.update { it.copy(addPlaceDialog = null) }
+                    loadPlaces()
+                    _events.emit(MapContract.Event.ShowSnackbar("Place saved"))
+                }
+                .onFailure {
+                    _events.emit(MapContract.Event.ShowSnackbar("Failed to save place"))
+                }
+        }
+    }
+
+    private fun handleSwitchMode(mode: MapContract.MapMode) {
+        handleStopPlayback()
+        _state.update { it.copy(mapMode = mode, selectedStay = null) }
+        if (mode == MapContract.MapMode.PLACES) loadPlaces()
+    }
+
+    private fun loadPlaces() {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoadingPlaces = true) }
+            getPlacesUseCase()
+                .onSuccess { places ->
+                    _state.update { it.copy(isLoadingPlaces = false, places = places) }
+                }
+                .onFailure {
+                    _state.update { it.copy(isLoadingPlaces = false) }
+                }
+        }
+    }
+
+    /**
+     * Starts the route-playback animation, advancing [MapContract.State.selectedStay]
+     * through every stay in chronological order at 1.5-second intervals.
+     * The playback stops automatically after the last stay.
+     */
+    private fun handleStartPlayback() {
+        val stays = _state.value.summary?.stays ?: return
+        if (stays.size < 2) return
+
+        playbackJob?.cancel()
+        _state.update { it.copy(isPlayingRoute = true, playbackIndex = 0, selectedStay = stays.first()) }
+
+        playbackJob = viewModelScope.launch {
+            stays.forEachIndexed { index, stay ->
+                _state.update { it.copy(selectedStay = stay, playbackIndex = index) }
+                delay(1_500L)
+            }
+            _state.update { it.copy(isPlayingRoute = false, playbackIndex = 0) }
+        }
+    }
+
+    /** Cancels any running playback and resets playback state. */
+    private fun handleStopPlayback() {
+        playbackJob?.cancel()
+        playbackJob = null
+        _state.update { it.copy(isPlayingRoute = false, playbackIndex = 0, selectedStay = null) }
+    }
+
     private fun handlePreviousDay() {
+        handleStopPlayback()
         _state.update {
             it.copy(
                 selectedDate = offsetDate(it.selectedDate, -1),
@@ -121,6 +235,7 @@ class MapViewModel(
     }
 
     private fun handleNextDay() {
+        handleStopPlayback()
         _state.update {
             it.copy(
                 selectedDate = offsetDate(it.selectedDate, +1),
@@ -147,5 +262,10 @@ class MapViewModel(
         val start = cal.timeInMillis
         cal.add(Calendar.DAY_OF_YEAR, 1)
         return start to cal.timeInMillis
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        playbackJob?.cancel()
     }
 }

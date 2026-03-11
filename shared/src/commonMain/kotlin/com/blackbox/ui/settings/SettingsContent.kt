@@ -134,6 +134,18 @@ fun SettingsContent(
 
                     item {
                         Spacer(modifier = Modifier.height(Dimens.SpacingMd))
+                        SectionHeader("Security")
+                        Spacer(modifier = Modifier.height(Dimens.SpacingXs))
+                        BiometricLockCard(
+                            isEnabled = state.isBiometricLockEnabled,
+                            onToggle = { enabled ->
+                                onAction(SettingsContract.Action.BiometricLockToggled(enabled))
+                            },
+                        )
+                    }
+
+                    item {
+                        Spacer(modifier = Modifier.height(Dimens.SpacingMd))
                         SectionHeader("Data Retention")
                         Spacer(modifier = Modifier.height(Dimens.SpacingXs))
                         RetentionPeriodCard(
@@ -313,6 +325,55 @@ private fun DataInspectionCard(
             colors = SwitchDefaults.colors(
                 checkedThumbColor = BlackBoxColors.OnAccent,
                 checkedTrackColor = BlackBoxColors.Teal,
+                uncheckedThumbColor = BlackBoxColors.TextTertiary,
+                uncheckedTrackColor = BlackBoxColors.SurfaceVariant,
+                uncheckedBorderColor = BlackBoxColors.Border,
+            ),
+        )
+    }
+}
+
+/**
+ * Card for the Security section — toggles biometric / device-credential lock on app launch.
+ *
+ * When enabled, the app requires fingerprint, face, or PIN authentication before showing content.
+ *
+ * @param isEnabled Current state of the biometric lock.
+ * @param onToggle  Callback when the toggle is changed.
+ * @param modifier  Optional [Modifier].
+ */
+@Composable
+private fun BiometricLockCard(
+    isEnabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
+            .padding(horizontal = Dimens.PaddingCard, vertical = Dimens.SpacingMd),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Biometric Lock",
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (isEnabled) BlackBoxColors.TextPrimary else BlackBoxColors.TextSecondary,
+            )
+            Text(
+                text = "Require fingerprint, face, or PIN to open the app.",
+                style = MaterialTheme.typography.bodySmall,
+                color = BlackBoxColors.TextTertiary,
+            )
+        }
+        Switch(
+            checked = isEnabled,
+            onCheckedChange = onToggle,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = BlackBoxColors.OnAccent,
+                checkedTrackColor = BlackBoxColors.Rose,
                 uncheckedThumbColor = BlackBoxColors.TextTertiary,
                 uncheckedTrackColor = BlackBoxColors.SurfaceVariant,
                 uncheckedBorderColor = BlackBoxColors.Border,

@@ -40,8 +40,17 @@ import org.jetbrains.compose.resources.stringResource
  * Shows a themed splash background while the onboarding state
  * is being loaded (null), preventing a flash of the wrong screen.
  *
+ * When [isAuthenticated] is `false`, a [LockScreen] is shown instead of the
+ * main navigation. [onRequestAuthentication] triggers the platform biometric
+ * or PIN prompt, which sets [isAuthenticated] to `true` on success.
+ *
  * @param isOnboardingComplete Whether the user has completed onboarding,
  *   or null if still loading.
+ * @param isAuthenticated Whether the user has passed biometric/PIN auth,
+ *   or null while the setting is still loading. Defaults to `true` so
+ *   previews and platforms without biometric support show the app directly.
+ * @param onRequestAuthentication Platform callback that triggers the
+ *   biometric / device-credential prompt.
  * @param onStartService Platform callback invoked when the background
  *   collection service should be started (after onboarding completes).
  * @param onOpenUsageAccessSettings Platform callback to open the system
@@ -56,6 +65,8 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun BlackBoxApp(
     isOnboardingComplete: Boolean? = true,
+    isAuthenticated: Boolean? = true,
+    onRequestAuthentication: () -> Unit = {},
     onStartService: () -> Unit = {},
     onOpenUsageAccessSettings: () -> Unit = {},
     onRequestLocationPermission: () -> Unit = {},
@@ -63,7 +74,7 @@ fun BlackBoxApp(
     onRequestNotificationPermission: () -> Unit = {},
     onOpenAppSettings: () -> Unit = {},
 ) {
-    if (isOnboardingComplete == null) {
+    if (isOnboardingComplete == null || isAuthenticated == null) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -72,6 +83,11 @@ fun BlackBoxApp(
         ) {
             // Empty themed background while loading — avoids white flash
         }
+        return
+    }
+
+    if (isAuthenticated == false) {
+        LockScreen(onUnlock = onRequestAuthentication)
         return
     }
 

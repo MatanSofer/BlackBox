@@ -59,6 +59,7 @@ class SettingsViewModel(
         refreshPermissions()
         loadRawDataViewEnabled()
         loadRetentionPeriod()
+        loadBiometricLockEnabled()
     }
 
     /**
@@ -71,6 +72,7 @@ class SettingsViewModel(
             is SettingsContract.Action.RefreshPermissions -> refreshPermissions()
             is SettingsContract.Action.RawDataViewToggled -> handleRawDataViewToggled(action.enabled)
             is SettingsContract.Action.RetentionPeriodChanged -> handleRetentionPeriodChanged(action.period)
+            is SettingsContract.Action.BiometricLockToggled -> handleBiometricLockToggled(action.enabled)
             is SettingsContract.Action.DumpDbRecords -> handleDumpDbRecords()
             is SettingsContract.Action.DismissDbDump -> _state.update { it.copy(dbDumpText = null) }
         }
@@ -192,6 +194,24 @@ class SettingsViewModel(
                             error.message ?: "Failed to update retention period",
                         ),
                     )
+                }
+        }
+    }
+
+    private fun loadBiometricLockEnabled() {
+        viewModelScope.launch {
+            runCatching { settingsRepository.isBiometricLockEnabled() }
+                .onSuccess { enabled -> _state.update { it.copy(isBiometricLockEnabled = enabled) } }
+        }
+    }
+
+    private fun handleBiometricLockToggled(enabled: Boolean) {
+        viewModelScope.launch {
+            _state.update { it.copy(isBiometricLockEnabled = enabled) }
+            runCatching { settingsRepository.setBiometricLockEnabled(enabled) }
+                .onFailure { error ->
+                    _state.update { it.copy(isBiometricLockEnabled = !enabled) }
+                    _events.emit(SettingsContract.Event.ShowSnackbar(error.message ?: "Failed to update setting"))
                 }
         }
     }

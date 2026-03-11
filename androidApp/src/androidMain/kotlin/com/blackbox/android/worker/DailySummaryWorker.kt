@@ -6,6 +6,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.blackbox.domain.usecase.place.DetectKnownPlacesUseCase
 import com.blackbox.domain.usecase.timeline.GenerateDailySummaryUseCase
 import com.blackbox.domain.util.BlackBoxLogger
 import org.koin.core.component.KoinComponent
@@ -22,6 +23,9 @@ import java.util.concurrent.TimeUnit
  * records from the previous day into a [DailySummary]. The summary
  * is stored for fast query responses and insight calculations.
  *
+ * Also runs [DetectKnownPlacesUseCase] after summary generation to keep
+ * the known-places list up-to-date from the previous day's location data.
+ *
  * Uses Koin for dependency injection via [KoinComponent].
  */
 class DailySummaryWorker(
@@ -30,6 +34,7 @@ class DailySummaryWorker(
 ) : CoroutineWorker(context, params), KoinComponent {
 
     private val generateDailySummaryUseCase: GenerateDailySummaryUseCase by inject()
+    private val detectKnownPlacesUseCase: DetectKnownPlacesUseCase by inject()
     private val logger: BlackBoxLogger by inject()
 
     override suspend fun doWork(): Result {
@@ -50,16 +55,22 @@ class DailySummaryWorker(
         cal.add(Calendar.DAY_OF_YEAR, -1) // back to yesterday
         val dateStr = dateFormat.format(cal.time)
 
-        return generateDailySummaryUseCase(dateStr, dayStartMs, dayEndMs).fold(
-            onSuccess = {
-                logger.d(TAG, "Daily summary generated for $dateStr")
-                Result.success()
-            },
-            onFailure = { error ->
-                logger.e(TAG, "Failed to generate daily summary: ${error.message}", error)
-                Result.retry()
-            },
-        )
+        val summaryResult = generateDailySummaryUseCase(dateStr, dayStartMs, dayEndMs)
+
+        if (summaryResult.isFailure) {
+            val error = summaryResult.exceptionOrNull()
+            logger.e(TAG, "Failed to generate daily summary: ${error?.message}", error)
+            return Result.retry()
+        }
+
+        logger.d(TAG, "Daily summary generated for $dateStr")
+
+        // Run place detection on yesterday's location data
+        detectKnownPlacesUseCase(dayStartMs, dayEndMs)
+            .onSuccess { places -> logger.d(TAG, "Place detection complete: ${places.size} places updated") }
+            .onFailure { error -> logger.w(TAG, "Place detection failed: ${error.message}") }
+
+        return Result.success()
     }
 
     companion object {

@@ -21,7 +21,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.blackbox.domain.model.map.LocationStay
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
@@ -29,12 +29,33 @@ import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 
-// ── Neon palette (matches BlackBoxColors) ─────────────────────────────────────
-private const val COLOR_NEON_GREEN   = 0xFF00FF41.toInt()
-private const val COLOR_NEON_MAGENTA = 0xFFFF0064.toInt()
-private const val COLOR_DOT_BORDER   = 0xFF050510.toInt()
-// 55% alpha ElectricCyan — subtle route line between dots
-private val COLOR_POLYLINE = Color.argb(140, 0, 212, 255)
+// ── Obsidian palette (matches BlackBoxColors) ─────────────────────────────────
+private const val COLOR_INDIGO     = 0xFF6366F1.toInt() // regular stay dot
+private const val COLOR_ROSE       = 0xFFF472B6.toInt() // selected stay dot
+private const val COLOR_DOT_BORDER = 0xFF0A0A0F.toInt() // dot outline
+// Teal #14B8A6 at ~65% alpha — route line between dots
+private val COLOR_POLYLINE = Color.argb(165, 20, 184, 166)
+
+/**
+ * CartoDB Dark Matter tile source.
+ *
+ * Near-black background with white roads and minimal grey labels — perfectly
+ * matched to the Obsidian UI theme. Tiles are downloaded on first use and
+ * cached by OSMDroid for subsequent offline access.
+ *
+ * Attribution: © CartoDB  © OpenStreetMap contributors
+ */
+private val CARTO_DARK_MATTER = XYTileSource(
+    "CartoDB.DarkMatter",
+    0, 19, 256, ".png",
+    arrayOf(
+        "https://a.basemaps.cartocdn.com/dark_all/",
+        "https://b.basemaps.cartocdn.com/dark_all/",
+        "https://c.basemaps.cartocdn.com/dark_all/",
+        "https://d.basemaps.cartocdn.com/dark_all/",
+    ),
+    "© CartoDB  © OpenStreetMap contributors",
+)
 
 /**
  * Android actual for [OsmMapView].
@@ -50,20 +71,21 @@ private val COLOR_POLYLINE = Color.argb(140, 0, 212, 255)
  * | 1 h – 4 h      | 40 dp    |
  * | > 4 h          | 52 dp    |
  *
- * A dashed ElectricCyan [Polyline] connects all stays in chronological order
- * so the user can see the day's journey at a glance.
+ * A dashed teal [Polyline] connects all stays in chronological order so the
+ * user can see the day's journey at a glance.
  *
- * The selected stay is highlighted in neon magenta; all others are neon green.
+ * The selected stay is highlighted in rose; all others are rendered in indigo.
  * Tapping a dot calls [onStayTapped] with that stay; tapping the map background
  * calls [onStayTapped] with null (deselect).
  *
- * Tile source: MAPNIK (OpenStreetMap standard, no API key needed).
+ * Tile source: CartoDB Dark Matter (dark tiles, cached after first load).
  */
 @Composable
 actual fun OsmMapView(
     stays: List<LocationStay>,
     selectedStay: LocationStay?,
     onStayTapped: (LocationStay?) -> Unit,
+    playbackStay: LocationStay?,
     modifier: Modifier,
 ) {
     val context = LocalContext.current
@@ -76,12 +98,15 @@ actual fun OsmMapView(
             userAgentValue = context.packageName
         }
         MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
+            setTileSource(CARTO_DARK_MATTER)
             setMultiTouchControls(true)
             isTilesScaledToDpi = true
             minZoomLevel = 3.0
             maxZoomLevel = 19.0
             controller.setZoom(15.0)
+            // Obsidian background shown while tiles are loading or not yet cached
+            overlayManager.tilesOverlay.loadingBackgroundColor = Color.parseColor("#0A0A0F")
+            overlayManager.tilesOverlay.loadingLineColor       = Color.parseColor("#1C1C27")
         }
     }
 
@@ -89,6 +114,9 @@ actual fun OsmMapView(
     // never call fitBounds just because the selection changed or the Flow re-emitted.
     // Index 0: last fitted list; null means the map has never been positioned.
     val lastFittedStays = remember { arrayOfNulls<List<LocationStay>>(1) }
+
+    // Tracks the last playback stay so we only animate when it actually changes.
+    val lastPlaybackStay = remember { arrayOfNulls<LocationStay>(1) }
 
     // Pause/resume tiles with the screen lifecycle.
     DisposableEffect(lifecycleOwner) {
@@ -151,7 +179,7 @@ actual fun OsmMapView(
             // ── 2. Stay dots with sequential visit numbers ────────────────────
             stays.forEachIndexed { index, stay ->
                 val isSelected = stay == selectedStay
-                val color = if (isSelected) COLOR_NEON_MAGENTA else COLOR_NEON_GREEN
+                val color = if (isSelected) COLOR_ROSE else COLOR_INDIGO
                 val sizeDp = dotSizeDp(stay.durationMs)
                 val bitmap = createCircleBitmap(
                     density = density,
@@ -175,7 +203,14 @@ actual fun OsmMapView(
                 mv.overlays.add(marker)
             }
 
-            // ── 3. Fit bounds only when the stays data itself changes ─────────
+            // ── 3. Animate camera to current playback stay ────────────────────
+            if (playbackStay != null && playbackStay != lastPlaybackStay[0]) {
+                lastPlaybackStay[0] = playbackStay
+                mv.controller.animateTo(GeoPoint(playbackStay.latitude, playbackStay.longitude))
+                mv.controller.setZoom(17.0)
+            }
+
+            // ── 4. Fit bounds only when the stays data itself changes ─────────
             // On first load use instant positioning; on date changes animate.
             if (stays != lastFittedStays[0]) {
                 val animate = lastFittedStays[0] != null

@@ -2,12 +2,13 @@ package com.blackbox.android
 
 import android.Manifest
 import android.content.Intent
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,6 +16,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
+import com.blackbox.android.security.AuthResult
+import com.blackbox.android.security.BiometricManager
 import com.blackbox.android.service.BlackBoxService
 import com.blackbox.domain.repository.SettingsRepository
 import com.blackbox.ui.BlackBoxApp
@@ -43,21 +46,37 @@ import org.koin.android.ext.android.inject
  * are detected automatically via the ON_RESUME lifecycle observer in
  * [com.blackbox.ui.onboarding.OnboardingScreen].
  */
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private val settingsRepository: SettingsRepository by inject()
+    private val biometricManager: BiometricManager by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Must be called before super.onCreate() to intercept the system splash.
+        var isOnboardingComplete: Boolean? by mutableStateOf(null)
+        var isAuthenticated: Boolean? by mutableStateOf(null)
+        installSplashScreen().setKeepOnScreenCondition { isOnboardingComplete == null }
+
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-
-        var isOnboardingComplete: Boolean? by mutableStateOf(null)
 
         lifecycleScope.launch {
             val complete = withContext(Dispatchers.IO) {
                 settingsRepository.isOnboardingComplete()
             }
+            val biometricEnabled = if (complete) withContext(Dispatchers.IO) {
+                settingsRepository.isBiometricLockEnabled()
+            } else false
+
             isOnboardingComplete = complete
+            if (!biometricEnabled) {
+                isAuthenticated = true
+            } else {
+                isAuthenticated = false
+                // Auto-trigger the prompt immediately on launch
+                triggerBiometricAuth { isAuthenticated = true }
+            }
+
             if (complete) {
                 startForegroundService(BlackBoxService.newIntent(this@MainActivity))
             }
@@ -78,6 +97,12 @@ class MainActivity : ComponentActivity() {
             BlackBoxTheme {
                 BlackBoxApp(
                     isOnboardingComplete = isOnboardingComplete,
+                    isAuthenticated = isAuthenticated,
+                    onRequestAuthentication = {
+                        lifecycleScope.launch {
+                            triggerBiometricAuth { isAuthenticated = true }
+                        }
+                    },
                     onStartService = {
                         startForegroundService(BlackBoxService.newIntent(this@MainActivity))
                     },
@@ -111,6 +136,14 @@ class MainActivity : ComponentActivity() {
                     },
                 )
             }
+        }
+    }
+
+    /** Shows the biometric / device-credential prompt and invokes [onSuccess] if it passes. */
+    private suspend fun triggerBiometricAuth(onSuccess: () -> Unit) {
+        val result = biometricManager.authenticate(this@MainActivity)
+        if (result is AuthResult.Success) {
+            onSuccess()
         }
     }
 }

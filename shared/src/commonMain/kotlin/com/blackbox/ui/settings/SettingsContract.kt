@@ -31,6 +31,7 @@ object SettingsContract {
         val permissionsGranted: Map<CollectorType, Boolean> = emptyMap(),
         val isServiceRunning: Boolean = false,
         val isRawDataViewEnabled: Boolean = false,
+        val isBiometricLockEnabled: Boolean = false,
         val retentionPeriod: RetentionPeriod = RetentionPeriod.ONE_YEAR,
         val isDumpLoading: Boolean = false,
         val dbDumpText: String? = null,
@@ -51,6 +52,8 @@ object SettingsContract {
         data class RawDataViewToggled(val enabled: Boolean) : Action
         /** User selected a new data retention period. */
         data class RetentionPeriodChanged(val period: RetentionPeriod) : Action
+        /** User toggled the biometric / device-credential app lock. */
+        data class BiometricLockToggled(val enabled: Boolean) : Action
         /** User tapped "VIEW DB RECORDS" in the debug section. */
         data object DumpDbRecords : Action
         /** User dismissed the DB dump dialog. */

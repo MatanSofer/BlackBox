@@ -53,4 +53,10 @@ interface SettingsRepository {
 
     /** Persists the user's chosen data retention period. */
     suspend fun setRetentionPeriod(period: RetentionPeriod)
+
+    /** Returns whether the biometric/device-credential lock is enabled. */
+    suspend fun isBiometricLockEnabled(): Boolean
+
+    /** Persists whether the biometric lock is enabled. */
+    suspend fun setBiometricLockEnabled(enabled: Boolean)
 }

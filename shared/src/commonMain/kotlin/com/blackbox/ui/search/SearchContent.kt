@@ -124,6 +124,10 @@ fun SearchContent(
                     IconButton(onClick = { onAction(SearchContract.Action.ClearResults) }) {
                         Icon(Icons.Default.Clear, contentDescription = null, tint = BlackBoxColors.TextTertiary)
                     }
+                } else {
+                    VoiceInputButton(
+                        onResult = { text -> onAction(SearchContract.Action.VoiceInputResult(text)) },
+                    )
                 }
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),

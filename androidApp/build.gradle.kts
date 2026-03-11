@@ -32,6 +32,7 @@ kotlin {
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.work.runtime)
             implementation(libs.androidx.biometric)
+            implementation(libs.androidx.splashscreen)
 
             // Google Play Services (includes Activity Recognition API)
             implementation(libs.play.services.location)

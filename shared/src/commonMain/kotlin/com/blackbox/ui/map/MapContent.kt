@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,17 +17,27 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +48,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.blackbox.domain.model.map.DayLocationSummary
 import com.blackbox.domain.model.map.LocationStay
+import com.blackbox.domain.model.place.KnownPlace
+import com.blackbox.domain.model.place.PlaceCategory
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.blackbox.ui.common.EmptyStateView
 import com.blackbox.ui.common.ErrorView
 import com.blackbox.ui.common.LoadingIndicator
@@ -52,11 +70,11 @@ import java.util.Locale
 /**
  * Pure UI content for the Map screen.
  *
- * Uses a full-screen [Box] so the OSMDroid map fills the entire content area
- * and the date bar + bottom panel are declared *after* the map in the
- * composition. In Compose 1.5+, [AndroidView] is composited into the Compose
- * GraphicsLayer tree, so content declared later in the same [Box] draws on top
- * of the Android View.
+ * Supports two modes:
+ * - [MapContract.MapMode.DAY]: full-screen OSMDroid map with date navigation,
+ *   stay dots, and route-playback controls.
+ * - [MapContract.MapMode.PLACES]: scrollable list of all known places with a
+ *   mini-map icon per entry.
  *
  * @param state    Current UI state from the ViewModel.
  * @param onAction Callback to dispatch user actions.
@@ -83,54 +101,117 @@ fun MapContent(
             .fillMaxSize()
             .background(BlackBoxColors.Background),
     ) {
-        // ── Layer 1: map or placeholder ─────────────────────────────────────
-        when {
-            state.isLoading -> LoadingIndicator()
+        when (state.mapMode) {
+            // ── DAY mode: full-screen map with overlaid controls ───────────────
+            MapContract.MapMode.DAY -> {
+                // Layer 1: map or state placeholder
+                when {
+                    state.isLoading -> LoadingIndicator()
+                    state.error != null -> ErrorView(
+                        message = state.error,
+                        onRetry = { onAction(MapContract.Action.Refresh) },
+                    )
+                    state.summary == null || state.summary.stays.isEmpty() -> EmptyStateView(
+                        title = "No Location Data",
+                        message = "No location data for this day.\nMake sure Location collection is enabled.",
+                    )
+                    else -> {
+                        val playbackStay = if (state.isPlayingRoute)
+                            state.summary.stays.getOrNull(state.playbackIndex) else null
+                        OsmMapView(
+                            stays = state.summary.stays,
+                            selectedStay = state.selectedStay,
+                            onStayTapped = { stay -> onAction(MapContract.Action.StayTapped(stay)) },
+                            playbackStay = playbackStay,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
 
-            state.error != null -> ErrorView(
-                message = state.error,
-                onRetry = { onAction(MapContract.Action.Refresh) },
-            )
+                // Layer 2: controls overlay
+                Column(modifier = Modifier.fillMaxSize()) {
+                    MapTopBar(
+                        mapMode = state.mapMode,
+                        onSwitchMode = { onAction(MapContract.Action.SwitchMode(it)) },
+                    )
+                    MapDateBar(
+                        selectedDate = state.selectedDate,
+                        canPlay = (state.summary?.stays?.size ?: 0) >= 2,
+                        isPlaying = state.isPlayingRoute,
+                        onPrevious = { onAction(MapContract.Action.PreviousDay) },
+                        onNext = { onAction(MapContract.Action.NextDay) },
+                        onOpenPicker = { onAction(MapContract.Action.ShowDatePicker) },
+                        onPlayPause = {
+                            if (state.isPlayingRoute) onAction(MapContract.Action.StopRoutePlayback)
+                            else onAction(MapContract.Action.StartRoutePlayback)
+                        },
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    MapBottomPanel(
+                        summary = state.summary,
+                        selectedStay = state.selectedStay,
+                        onDismiss = { onAction(MapContract.Action.StayTapped(null)) },
+                    )
+                }
+            }
 
-            state.summary == null || state.summary.stays.isEmpty() -> EmptyStateView(
-                title = "No Location Data",
-                message = "No location data for this day.\nMake sure Location collection is enabled.",
-            )
+            // ── PLACES mode: scrollable known-places list ──────────────────────
+            MapContract.MapMode.PLACES -> {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        MapTopBar(
+                            mapMode = state.mapMode,
+                            onSwitchMode = { onAction(MapContract.Action.SwitchMode(it)) },
+                        )
+                        when {
+                            state.isLoadingPlaces -> LoadingIndicator()
+                            state.places.isEmpty() -> EmptyStateView(
+                                title = "No Places Yet",
+                                message = "Tap + to add a place manually,\nor keep BlackBox running to auto-detect.",
+                            )
+                            else -> PlacesList(places = state.places)
+                        }
+                    }
 
-            else -> OsmMapView(
-                stays = state.summary.stays,
-                selectedStay = state.selectedStay,
-                onStayTapped = { stay -> onAction(MapContract.Action.StayTapped(stay)) },
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
+                    // FAB — bottom-end corner
+                    FloatingActionButton(
+                        onClick = { onAction(MapContract.Action.OpenAddPlaceDialog) },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(Dimens.SpacingLg),
+                        containerColor = BlackBoxColors.Indigo,
+                        contentColor = BlackBoxColors.TextPrimary,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add place",
+                        )
+                    }
+                }
 
-        // ── Layer 2: controls overlay (drawn on top of map) ─────────────────
-        Column(modifier = Modifier.fillMaxSize()) {
-            MapDateBar(
-                selectedDate = state.selectedDate,
-                onPrevious = { onAction(MapContract.Action.PreviousDay) },
-                onNext = { onAction(MapContract.Action.NextDay) },
-                onOpenPicker = { onAction(MapContract.Action.ShowDatePicker) },
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            MapBottomPanel(
-                summary = state.summary,
-                selectedStay = state.selectedStay,
-                onDismiss = { onAction(MapContract.Action.StayTapped(null)) },
-            )
+                // Add Place dialog — shown as overlay
+                state.addPlaceDialog?.let { dialog ->
+                    AddPlaceDialog(
+                        dialog = dialog,
+                        onNameChanged = { onAction(MapContract.Action.AddPlaceNameChanged(it)) },
+                        onCategoryChanged = { onAction(MapContract.Action.AddPlaceCategoryChanged(it)) },
+                        onLatChanged = { onAction(MapContract.Action.AddPlaceLatChanged(it)) },
+                        onLngChanged = { onAction(MapContract.Action.AddPlaceLngChanged(it)) },
+                        onConfirm = { onAction(MapContract.Action.ConfirmAddPlace) },
+                        onDismiss = { onAction(MapContract.Action.DismissAddPlaceDialog) },
+                    )
+                }
+            }
         }
     }
 }
 
-// ── Date navigator bar ────────────────────────────────────────────────────────
+// ── Mode toggle bar ────────────────────────────────────────────────────────────
 
 @Composable
-private fun MapDateBar(
-    selectedDate: String,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    onOpenPicker: () -> Unit,
+private fun MapTopBar(
+    mapMode: MapContract.MapMode,
+    onSwitchMode: (MapContract.MapMode) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -138,7 +219,69 @@ private fun MapDateBar(
             .fillMaxWidth()
             .background(BlackBoxColors.Surface)
             .drawBehind {
-                // Bottom separator line
+                drawLine(
+                    color = BlackBoxColors.Border,
+                    start = Offset(0f, size.height),
+                    end = Offset(size.width, size.height),
+                    strokeWidth = 1.dp.toPx(),
+                )
+            }
+            .padding(horizontal = Dimens.PaddingScreen, vertical = Dimens.SpacingXs),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingSm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MapModeChip(
+            label = "Day",
+            selected = mapMode == MapContract.MapMode.DAY,
+            onClick = { onSwitchMode(MapContract.MapMode.DAY) },
+        )
+        MapModeChip(
+            label = "Places",
+            selected = mapMode == MapContract.MapMode.PLACES,
+            onClick = { onSwitchMode(MapContract.MapMode.PLACES) },
+        )
+    }
+}
+
+@Composable
+private fun MapModeChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val bg = if (selected) BlackBoxColors.IndigoDim else BlackBoxColors.SurfaceVariant
+    val textColor = if (selected) BlackBoxColors.IndigoLight else BlackBoxColors.TextSecondary
+
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelMedium.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal),
+        color = textColor,
+        modifier = modifier
+            .background(bg, RoundedCornerShape(Dimens.RadiusFull))
+            .clickable(onClick = onClick)
+            .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingXs),
+    )
+}
+
+// ── Date navigator bar ────────────────────────────────────────────────────────
+
+@Composable
+private fun MapDateBar(
+    selectedDate: String,
+    canPlay: Boolean,
+    isPlaying: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onOpenPicker: () -> Unit,
+    onPlayPause: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(BlackBoxColors.Surface)
+            .drawBehind {
                 drawLine(
                     color = BlackBoxColors.Border,
                     start = Offset(0f, size.height),
@@ -179,12 +322,26 @@ private fun MapDateBar(
             )
         }
 
-        IconButton(onClick = onNext) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = "Next day",
-                tint = BlackBoxColors.TextSecondary,
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Play / Pause button — only visible when there are 2+ stays
+            if (canPlay) {
+                IconButton(onClick = onPlayPause) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (isPlaying) "Stop playback" else "Play route",
+                        tint = if (isPlaying) BlackBoxColors.Rose else BlackBoxColors.Teal,
+                        modifier = Modifier.size(Dimens.IconMd),
+                    )
+                }
+            }
+
+            IconButton(onClick = onNext) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = "Next day",
+                    tint = BlackBoxColors.TextSecondary,
+                )
+            }
         }
     }
 }
@@ -203,7 +360,6 @@ private fun MapBottomPanel(
             .fillMaxWidth()
             .background(BlackBoxColors.Surface)
             .drawBehind {
-                // Top separator line
                 drawLine(
                     color = BlackBoxColors.Border,
                     start = Offset(0f, 0f),
@@ -288,12 +444,7 @@ private fun SummaryChip(
 }
 
 /**
- * Expanded card for a selected stay dot, showing all available data:
- * visit order, arrival/departure times, duration, fix count, accuracy,
- * coordinates, and known place category if matched.
- *
- * @param stopIndex  1-based position of this stay in the day's chronological sequence.
- * @param totalStops Total number of stays for the selected day.
+ * Expanded card for a selected stay dot.
  */
 @Composable
 private fun StayDetailCard(
@@ -328,7 +479,6 @@ private fun StayDetailCard(
                 color = BlackBoxColors.TextPrimary,
                 modifier = Modifier.weight(1f),
             )
-            // Stop badge: "2 / 5"
             Text(
                 text = "$stopIndex / $totalStops",
                 style = MaterialTheme.typography.labelSmall,
@@ -392,17 +542,228 @@ private fun DetailRow(
 @Composable
 private fun DetailCell(label: String, value: String, modifier: Modifier = Modifier) {
     Column(modifier = modifier) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = BlackBoxColors.TextTertiary,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            color = BlackBoxColors.Teal,
-        )
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = BlackBoxColors.TextTertiary)
+        Text(text = value, style = MaterialTheme.typography.bodySmall, color = BlackBoxColors.Teal)
     }
+}
+
+// ── Add Place dialog ──────────────────────────────────────────────────────────
+
+private val ADD_PLACE_CATEGORIES = listOf(
+    PlaceCategory.HOME,
+    PlaceCategory.WORK,
+    PlaceCategory.GYM,
+    PlaceCategory.RESTAURANT,
+    PlaceCategory.SHOPPING,
+    PlaceCategory.OTHER,
+)
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AddPlaceDialog(
+    dialog: MapContract.AddPlaceDialogState,
+    onNameChanged: (String) -> Unit,
+    onCategoryChanged: (PlaceCategory) -> Unit,
+    onLatChanged: (String) -> Unit,
+    onLngChanged: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = BlackBoxColors.Surface,
+        title = {
+            Text(
+                text = "Add Place",
+                style = MaterialTheme.typography.titleMedium,
+                color = BlackBoxColors.TextPrimary,
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(Dimens.SpacingMd),
+            ) {
+                // Name
+                OutlinedTextField(
+                    value = dialog.name,
+                    onValueChange = onNameChanged,
+                    label = { Text("Name", color = BlackBoxColors.TextSecondary) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                // Category chips
+                Text(
+                    text = "Category",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = BlackBoxColors.TextSecondary,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingXs),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.SpacingXs),
+                ) {
+                    ADD_PLACE_CATEGORIES.forEach { cat ->
+                        val selected = cat == dialog.category
+                        Text(
+                            text = cat.name.lowercase().replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (selected) BlackBoxColors.Indigo else BlackBoxColors.TextSecondary,
+                            modifier = Modifier
+                                .border(
+                                    width = 1.dp,
+                                    color = if (selected) BlackBoxColors.Indigo else BlackBoxColors.Border,
+                                    shape = RoundedCornerShape(Dimens.RadiusFull),
+                                )
+                                .clickable { onCategoryChanged(cat) }
+                                .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingXs),
+                        )
+                    }
+                }
+
+                // Coordinates
+                Text(
+                    text = "Coordinates",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = BlackBoxColors.TextSecondary,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingSm)) {
+                    OutlinedTextField(
+                        value = dialog.latText,
+                        onValueChange = onLatChanged,
+                        label = { Text("Lat", color = BlackBoxColors.TextSecondary) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                        isError = dialog.latText.toDoubleOrNull() == null,
+                    )
+                    OutlinedTextField(
+                        value = dialog.lngText,
+                        onValueChange = onLngChanged,
+                        label = { Text("Lng", color = BlackBoxColors.TextSecondary) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                        isError = dialog.lngText.toDoubleOrNull() == null,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = dialog.isValid,
+            ) {
+                Text(
+                    text = "Save",
+                    color = if (dialog.isValid) BlackBoxColors.Indigo else BlackBoxColors.TextTertiary,
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = BlackBoxColors.TextSecondary)
+            }
+        },
+    )
+}
+
+// ── Known Places list ─────────────────────────────────────────────────────────
+
+/**
+ * Scrollable list of all known places shown in PLACES mode.
+ *
+ * Each row displays the place name, category, visit count, and last-visit date.
+ */
+@Composable
+private fun PlacesList(
+    places: List<KnownPlace>,
+    modifier: Modifier = Modifier,
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = Dimens.PaddingScreen, vertical = Dimens.SpacingMd),
+        verticalArrangement = Arrangement.spacedBy(Dimens.SpacingSm),
+    ) {
+        item {
+            Text(
+                text = "${places.size} known places",
+                style = MaterialTheme.typography.labelMedium,
+                color = BlackBoxColors.TextTertiary,
+                modifier = Modifier.padding(bottom = Dimens.SpacingXs),
+            )
+        }
+        items(places, key = { it.id }) { place ->
+            PlaceRow(place = place)
+        }
+        item { Spacer(Modifier.height(Dimens.SpacingXl)) }
+    }
+}
+
+@Composable
+private fun PlaceRow(
+    place: KnownPlace,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
+            .padding(horizontal = Dimens.PaddingCard, vertical = Dimens.SpacingMd),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingMd),
+    ) {
+        // Category-coloured pin icon
+        val pinColor = categoryColor(place.category)
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(pinColor.copy(alpha = 0.12f), RoundedCornerShape(Dimens.RadiusSm)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Place,
+                contentDescription = null,
+                tint = pinColor,
+                modifier = Modifier.size(Dimens.IconMd),
+            )
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = place.name,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = BlackBoxColors.TextPrimary,
+            )
+            Text(
+                text = "${place.category.name.lowercase().replaceFirstChar { it.uppercase() }}  ·  ${place.visitCount} visits",
+                style = MaterialTheme.typography.bodySmall,
+                color = BlackBoxColors.TextTertiary,
+            )
+        }
+
+        Column(horizontalAlignment = Alignment.End) {
+            place.lastVisit?.let { ts ->
+                Text(
+                    text = SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(ts)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = BlackBoxColors.TextTertiary,
+                )
+            }
+            Text(
+                text = if (place.isAutoDetected) "auto" else "manual",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (place.isAutoDetected) BlackBoxColors.Teal else BlackBoxColors.IndigoLight,
+            )
+        }
+    }
+}
+
+private fun categoryColor(category: PlaceCategory) = when (category) {
+    PlaceCategory.HOME -> BlackBoxColors.AccentActivity
+    PlaceCategory.WORK -> BlackBoxColors.AccentWifi
+    PlaceCategory.GYM -> BlackBoxColors.AccentAudio
+    PlaceCategory.RESTAURANT -> BlackBoxColors.AccentBattery
+    PlaceCategory.SHOPPING -> BlackBoxColors.AccentConnectivity
+    else -> BlackBoxColors.TextSecondary
 }
 
 // ── Formatting ────────────────────────────────────────────────────────────────
@@ -461,28 +822,15 @@ private fun MapContentLoadingPreview() {
 
 @Preview(showBackground = true)
 @Composable
-private fun MapContentStaySelectedPreview() {
-    val stay = LocationStay(
-        latitude = 32.0853,
-        longitude = 34.7818,
-        arrivalTime = System.currentTimeMillis() - 5_400_000L,
-        departureTime = System.currentTimeMillis(),
-        pointCount = 47,
-        averageAccuracyMeters = 12f,
-        knownPlace = null,
-    )
+private fun MapContentPlacesPreview() {
     BlackBoxTheme {
         MapContent(
             state = MapContract.State(
-                selectedDate = "2026-03-04",
-                summary = DayLocationSummary(
-                    date = "2026-03-04",
-                    stays = listOf(stay),
-                    totalDistanceMeters = 3_420.0,
-                    firstFixTime = System.currentTimeMillis() - 28_800_000L,
-                    lastFixTime = System.currentTimeMillis(),
+                mapMode = MapContract.MapMode.PLACES,
+                places = listOf(
+                    KnownPlace(id = 1, name = "Home", latitude = 32.08, longitude = 34.78, category = PlaceCategory.HOME, visitCount = 120, isAutoDetected = true, lastVisit = System.currentTimeMillis() - 86_400_000),
+                    KnownPlace(id = 2, name = "Office", latitude = 32.07, longitude = 34.77, category = PlaceCategory.WORK, visitCount = 85, isAutoDetected = false, lastVisit = System.currentTimeMillis() - 3_600_000),
                 ),
-                selectedStay = stay,
             ),
             onAction = {},
         )

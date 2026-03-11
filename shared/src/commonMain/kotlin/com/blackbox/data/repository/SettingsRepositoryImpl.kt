@@ -168,10 +168,33 @@ class SettingsRepositoryImpl(
         }
     }
 
+    override suspend fun isBiometricLockEnabled(): Boolean {
+        return withContext(Dispatchers.IO) {
+            database.blackBoxDatabaseQueries
+                .getSettingForCollector(BIOMETRIC_LOCK_KEY)
+                .executeAsOneOrNull()
+                ?.is_enabled == 1L
+        }
+    }
+
+    override suspend fun setBiometricLockEnabled(enabled: Boolean) {
+        withContext(Dispatchers.IO) {
+            logger.i(TAG, "Setting biometric lock enabled=$enabled")
+            database.blackBoxDatabaseQueries.insertSetting(
+                collector_type = BIOMETRIC_LOCK_KEY,
+                is_enabled = if (enabled) 1L else 0L,
+                collection_interval_ms = 0L,
+                custom_config_json = null,
+                updated_at = kotlinx.datetime.Clock.System.now().toEpochMilliseconds(),
+            )
+        }
+    }
+
     companion object {
         private const val TAG = "SettingsRepository"
         private const val ONBOARDING_KEY = "_ONBOARDING_COMPLETE"
         private const val RAW_DATA_VIEW_KEY = "_RAW_DATA_VIEW_ENABLED"
         private const val RETENTION_PERIOD_KEY = "_RETENTION_PERIOD"
+        private const val BIOMETRIC_LOCK_KEY = "_BIOMETRIC_LOCK_ENABLED"
     }
 }

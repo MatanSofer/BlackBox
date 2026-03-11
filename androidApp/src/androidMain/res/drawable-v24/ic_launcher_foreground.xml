@@ -4,85 +4,69 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Outer neon border glow (most transparent) -->
+    <!-- Outer soft-indigo glow around container -->
     <path
         android:fillColor="#00000000"
-        android:pathData="M24,30 L84,30 L84,78 L24,78 Z"
-        android:strokeWidth="6"
-        android:strokeColor="#1A00FF41" />
+        android:pathData="M34,30 L74,30 Q84,30 84,40 L84,68 Q84,78 74,78 L34,78 Q24,78 24,68 L24,40 Q24,30 34,30 Z"
+        android:strokeWidth="7"
+        android:strokeColor="#1A6366F1" />
 
-    <!-- Middle glow layer -->
+    <!-- Rounded-rect container — obsidian surface + indigo border -->
     <path
-        android:fillColor="#00000000"
-        android:pathData="M26,32 L82,32 L82,76 L26,76 Z"
-        android:strokeWidth="3"
-        android:strokeColor="#4000FF41" />
-
-    <!-- Black box rectangle — solid neon green border -->
-    <path
-        android:fillColor="#0D0D20"
-        android:pathData="M28,34 L80,34 L80,74 L28,74 Z"
-        android:strokeWidth="2"
-        android:strokeColor="#00FF41" />
-
-    <!-- "BB" lettermark in neon green -->
-    <!-- Left B -->
-    <path
-        android:fillColor="#00FF41"
-        android:pathData="M36,42 L36,66 L36,42 Z"
-        android:strokeWidth="3"
-        android:strokeColor="#00FF41"
-        android:strokeLineCap="round" />
-    <path
-        android:fillColor="#00000000"
-        android:pathData="M36,42 L44,42 C47,42 49,44 49,47 C49,50 47,52 44,52 L36,52"
-        android:strokeWidth="2.5"
-        android:strokeColor="#00FF41"
-        android:strokeLineCap="round" />
-    <path
-        android:fillColor="#00000000"
-        android:pathData="M36,52 L45,52 C48,52 50,54 50,57 C50,60 48,62 45,62 L36,62"
-        android:strokeWidth="2.5"
-        android:strokeColor="#00FF41"
-        android:strokeLineCap="round" />
-
-    <!-- Right B -->
-    <path
-        android:fillColor="#00FF41"
-        android:pathData="M58,42 L58,66 L58,42 Z"
-        android:strokeWidth="3"
-        android:strokeColor="#00FF41"
-        android:strokeLineCap="round" />
-    <path
-        android:fillColor="#00000000"
-        android:pathData="M58,42 L66,42 C69,42 71,44 71,47 C71,50 69,52 66,52 L58,52"
-        android:strokeWidth="2.5"
-        android:strokeColor="#00FF41"
-        android:strokeLineCap="round" />
-    <path
-        android:fillColor="#00000000"
-        android:pathData="M58,52 L67,52 C70,52 72,54 72,57 C72,60 70,62 67,62 L58,62"
-        android:strokeWidth="2.5"
-        android:strokeColor="#00FF41"
-        android:strokeLineCap="round" />
-
-    <!-- Circuit trace lines extending from box corners -->
-    <path
-        android:fillColor="#00000000"
-        android:pathData="M28,54 L18,54"
+        android:fillColor="#111118"
+        android:pathData="M36,32 L72,32 Q82,32 82,42 L82,66 Q82,76 72,76 L36,76 Q26,76 26,66 L26,42 Q26,32 36,32 Z"
         android:strokeWidth="1.5"
-        android:strokeColor="#00FF41" />
-    <path
-        android:fillColor="#00FF41"
-        android:pathData="M16,52 L16,56 L12,56 L12,52 Z" />
+        android:strokeColor="#6366F1" />
 
+    <!-- ── Left B  (Indigo #818CF8) ── -->
+    <!-- Spine -->
+    <path
+        android:fillColor="#818CF8"
+        android:pathData="M34,38 L34,70 L34,38 Z"
+        android:strokeWidth="3"
+        android:strokeColor="#818CF8"
+        android:strokeLineCap="round" />
+    <!-- Top bump -->
     <path
         android:fillColor="#00000000"
-        android:pathData="M80,54 L90,54"
-        android:strokeWidth="1.5"
-        android:strokeColor="#00FF41" />
+        android:pathData="M34,38 L41,38 Q49,38 49,46 Q49,54 41,54 L34,54"
+        android:strokeWidth="2.5"
+        android:strokeColor="#818CF8"
+        android:strokeLineCap="round" />
+    <!-- Bottom bump (slightly wider) -->
     <path
-        android:fillColor="#00FF41"
-        android:pathData="M92,52 L92,56 L96,56 L96,52 Z" />
+        android:fillColor="#00000000"
+        android:pathData="M34,54 L42,54 Q51,54 51,62 Q51,70 42,70 L34,70"
+        android:strokeWidth="2.5"
+        android:strokeColor="#818CF8"
+        android:strokeLineCap="round" />
+
+    <!-- ── Right B  (Teal #2DD4BF) ── -->
+    <!-- Spine -->
+    <path
+        android:fillColor="#2DD4BF"
+        android:pathData="M57,38 L57,70 L57,38 Z"
+        android:strokeWidth="3"
+        android:strokeColor="#2DD4BF"
+        android:strokeLineCap="round" />
+    <!-- Top bump -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M57,38 L64,38 Q72,38 72,46 Q72,54 64,54 L57,54"
+        android:strokeWidth="2.5"
+        android:strokeColor="#2DD4BF"
+        android:strokeLineCap="round" />
+    <!-- Bottom bump (slightly wider) -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M57,54 L65,54 Q74,54 74,62 Q74,70 65,70 L57,70"
+        android:strokeWidth="2.5"
+        android:strokeColor="#2DD4BF"
+        android:strokeLineCap="round" />
+
+    <!-- Teal accent dot — top-right corner of container -->
+    <path
+        android:fillColor="#14B8A6"
+        android:pathData="M76,36 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
 
 </vector>
