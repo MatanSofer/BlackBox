@@ -37,6 +37,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.blackbox.domain.model.sleep.SleepQuality
+import com.blackbox.domain.model.sleep.SleepSession
 import com.blackbox.domain.repository.DailyScreenTime
 import com.blackbox.domain.repository.DailyStepCount
 import com.blackbox.domain.usecase.insight.AppUsageStat
@@ -139,6 +141,7 @@ private fun InsightsFeed(
         }
         item { StepTrendCard(trend = brief.weekStepTrend, avg = brief.avgDailySteps) }
         item { ScreenTrendCard(trend = brief.weekScreenTrend, avg = brief.avgDailyScreenMinutes) }
+        item { SleepTrendCard(trend = brief.weekSleepTrend, lastNight = brief.lastNightSleep, avg = brief.avgSleepMinutes) }
 
         // Top places + apps
         if (brief.weekTopPlaces.isNotEmpty() || brief.weekTopApps.isNotEmpty()) {
@@ -327,6 +330,36 @@ private fun ScreenTrendCard(trend: List<DailyScreenTime>, avg: Int, modifier: Mo
         barValues = trend.map { it.totalMinutes.toFloat() },
         barLabels = trend.map { it.date.dayAbbrev() },
         barColor = BlackBoxColors.Teal,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun SleepTrendCard(
+    trend: List<SleepSession>,
+    lastNight: SleepSession?,
+    avg: Int,
+    modifier: Modifier = Modifier,
+) {
+    val qualityLabel = lastNight?.let {
+        when (it.quality) {
+            SleepQuality.POOR -> "Poor"
+            SleepQuality.FAIR -> "Fair"
+            SleepQuality.GOOD -> "Good"
+            SleepQuality.LONG -> "Long"
+        }
+    }
+    val subtitle = when {
+        lastNight != null -> "last night ${formatMinutes(lastNight.durationMinutes)} · ${qualityLabel!!}"
+        avg > 0           -> "avg ${formatMinutes(avg)}/night"
+        else              -> "no data yet"
+    }
+    TrendCard(
+        title = "Sleep",
+        subtitle = subtitle,
+        barValues = trend.map { it.durationMinutes.toFloat() },
+        barLabels = trend.map { it.date.dayAbbrev() },
+        barColor = BlackBoxColors.AccentScreen,
         modifier = modifier,
     )
 }
@@ -561,6 +594,9 @@ private fun AveragesCard(brief: InsightsBrief, modifier: Modifier = Modifier) {
         }
         AverageRow("Avg steps", "${brief.avgDailySteps.formatK()} / day", BlackBoxColors.IndigoLight)
         AverageRow("Avg screen", "${formatMinutes(brief.avgDailyScreenMinutes)} / day", BlackBoxColors.TealLight)
+        if (brief.avgSleepMinutes > 0) {
+            AverageRow("Avg sleep", "${formatMinutes(brief.avgSleepMinutes)} / night", BlackBoxColors.AccentScreen)
+        }
         if (brief.weekTopPlaces.isNotEmpty()) {
             AverageRow("Places", "${brief.weekTopPlaces.size} unique this week", BlackBoxColors.Rose)
         }
@@ -645,6 +681,17 @@ private val previewBrief = InsightsBrief(
     bestStepDay = DailyStepCount("2026-03-05", 12000),
     avgDailySteps = 7_607,
     avgDailyScreenMinutes = 175,
+    weekSleepTrend = listOf(420, 390, 465, 445, 380, 510, 450)
+        .mapIndexed { i, m ->
+            SleepSession(
+                date = "2026-03-${3 + i}",
+                sleepStart = 0L, wakeTime = 0L,
+                durationMs = m * 60_000L, durationMinutes = m,
+                quality = when { m < 360 -> SleepQuality.POOR; m < 420 -> SleepQuality.FAIR; m <= 540 -> SleepQuality.GOOD; else -> SleepQuality.LONG },
+            )
+        },
+    lastNightSleep = SleepSession("2026-03-09", 0L, 0L, 450 * 60_000L, 450, SleepQuality.GOOD),
+    avgSleepMinutes = 437,
 )
 
 @Preview(showBackground = true)

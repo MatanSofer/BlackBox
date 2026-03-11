@@ -8,6 +8,7 @@ import com.blackbox.domain.query.ResponseGenerator
 import com.blackbox.domain.query.TimeExpressionParser
 import com.blackbox.domain.usecase.insight.GenerateInsightObservationsUseCase
 import com.blackbox.domain.usecase.insight.GetInsightsBriefUseCase
+import com.blackbox.domain.usecase.sleep.DetectSleepSessionsUseCase
 import com.blackbox.domain.usecase.place.DetectKnownPlacesUseCase
 import com.blackbox.domain.usecase.place.GetPlacesUseCase
 import com.blackbox.domain.usecase.place.SavePlaceUseCase
@@ -63,7 +64,8 @@ val useCaseModule = module {
     single { SavePlaceUseCase(get(), get()) }
 
     // Insight use cases
-    single { GetInsightsBriefUseCase(get(), get(), get(), get(), get()) }
+    single { DetectSleepSessionsUseCase(get(), get()) }
+    single { GetInsightsBriefUseCase(get(), get(), get(), get(), get(), get()) }
     single { GenerateInsightObservationsUseCase(get(), get()) }
 
     // Settings use cases

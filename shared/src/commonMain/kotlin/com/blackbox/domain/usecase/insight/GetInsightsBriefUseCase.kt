@@ -3,6 +3,8 @@ package com.blackbox.domain.usecase.insight
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.RecordData
 import com.blackbox.domain.model.record.ScreenState
+import com.blackbox.domain.model.sleep.SleepSession
+import com.blackbox.domain.usecase.sleep.DetectSleepSessionsUseCase
 import com.blackbox.domain.repository.DailyStepCount
 import com.blackbox.domain.platform.StepCounterProvider
 import com.blackbox.domain.repository.InsightRepository
@@ -37,6 +39,7 @@ class GetInsightsBriefUseCase(
     private val recordRepository: RecordRepository,
     private val locationRepository: LocationRepository,
     private val stepCounterProvider: StepCounterProvider,
+    private val detectSleepSessionsUseCase: DetectSleepSessionsUseCase,
     private val logger: BlackBoxLogger,
 ) {
 
@@ -101,13 +104,19 @@ class GetInsightsBriefUseCase(
         )
         val todayScreenMinutes = computeScreenMinutes(todayScreenRecords, nowMs)
 
+        // Sleep detection for the last 7 nights
+        val weekSleepTrend = detectSleepSessionsUseCase.getWeekTrend(todayStr)
+        val lastNightSleep = weekSleepTrend.lastOrNull()
+        val avgSleepMinutes = if (weekSleepTrend.isEmpty()) 0
+            else weekSleepTrend.map { it.durationMinutes }.average().toInt()
+
         // Derived aggregates
         val avgSteps = stepTrend.map { it.steps }.average().takeIf { it.isFinite() }?.toInt() ?: 0
         val avgScreen = screenTrend.map { it.totalMinutes }.average().takeIf { it.isFinite() }?.toInt() ?: 0
         val bestStepDay = stepTrend.maxByOrNull { it.steps }
         val stepsVsAvg = if (avgSteps > 0) todaySteps.toFloat() / avgSteps else 1f
 
-        logger.d(TAG, "Brief ready — today: $todaySteps steps, ${weekTopApps.size} apps, ${weekTopPlaces.size} places")
+        logger.d(TAG, "Brief ready — today: $todaySteps steps, ${weekTopApps.size} apps, sleep: ${lastNightSleep?.durationMinutes ?: 0}min")
 
         InsightsBrief(
             todaySteps = todaySteps,
@@ -122,6 +131,9 @@ class GetInsightsBriefUseCase(
             bestStepDay = bestStepDay,
             avgDailySteps = avgSteps,
             avgDailyScreenMinutes = avgScreen,
+            lastNightSleep = lastNightSleep,
+            weekSleepTrend = weekSleepTrend,
+            avgSleepMinutes = avgSleepMinutes,
         )
     }
 
@@ -324,6 +336,9 @@ class GetInsightsBriefUseCase(
  * @property bestStepDay The day with the highest step count in the period.
  * @property avgDailySteps Mean daily steps over the 7-day window.
  * @property avgDailyScreenMinutes Mean daily screen minutes over the 7-day window.
+ * @property lastNightSleep Detected sleep session for the most recent night, or null.
+ * @property weekSleepTrend Detected sleep sessions for the last 7 nights (oldest first).
+ * @property avgSleepMinutes Mean sleep duration in minutes over the detected nights.
  */
 data class InsightsBrief(
     val todaySteps: Int = 0,
@@ -338,6 +353,9 @@ data class InsightsBrief(
     val bestStepDay: DailyStepCount? = null,
     val avgDailySteps: Int = 0,
     val avgDailyScreenMinutes: Int = 0,
+    val lastNightSleep: SleepSession? = null,
+    val weekSleepTrend: List<SleepSession> = emptyList(),
+    val avgSleepMinutes: Int = 0,
 )
 
 /**
