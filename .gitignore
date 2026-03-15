@@ -40,3 +40,6 @@ TIMELINE_BEHAVIOR.md
 
 # Claude AI settings
 .claude/
+
+# Firebase — contains project-specific keys, never commit
+google-services.json

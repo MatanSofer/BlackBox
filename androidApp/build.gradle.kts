@@ -10,6 +10,8 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.googleServices)
+    alias(libs.plugins.firebaseCrashlytics)
 }
 
 kotlin {
@@ -89,5 +91,9 @@ android {
 }
 
 dependencies {
+    // Firebase (BoM manages all Firebase library versions)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.crashlytics.ktx)
+
     debugImplementation(libs.compose.uiTooling)
 }
