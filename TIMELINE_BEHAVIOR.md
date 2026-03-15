@@ -1,21 +1,32 @@
 # Timeline Behavior — Design Clarification
 
 > Documented from debugging session on 2026-03-01.
+> Updated 2026-03-12: call log entries added to timeline; WiFi fingerprint place matching added.
 > Covers what the timeline shows, why few records appear, and what is collected in the background.
 
 ---
 
 ## What the Timeline Screen Actually Shows
 
-`GetTimelineUseCase` fetches exactly **3 types** of entries:
+`GetTimelineUseCase` fetches **4 types** of entries:
 
 | Type | `TimelineEntryType` | Source |
 |------|---------------------|--------|
 | Location stays | `LOCATION_STAY` | `locationRepository.getLocationsInRange()` |
 | Activity transitions | `ACTIVITY` | `recordRepository.getRecordsByTypeInRange(CollectorType.ACTIVITY, ...)` |
+| Call log entries | `EVENT` (iconType = `call_incoming` etc.) | `recordRepository.getRecordsByTypeInRange(CollectorType.CALL_LOG, ...)` |
 | Derived events | `EVENT` | `timelineRepository.getEventsInRange()` |
 
 **WiFi, Battery, Connectivity, ScreenState, AudioLevel, Barometer, Light** — all 7 of those collectors run and save to the DB, but they are **not shown in the timeline**. Their data is available for Search queries only.
+
+### Place Name Resolution (Location Stays)
+
+When building a `LOCATION_STAY` entry, the use case tries two methods to resolve a human-readable place name:
+
+1. **GPS match** — `placeRepository.findNearestPlace(lat, lon)` checks if any `KnownPlace` is within its `radiusMeters`.
+2. **WiFi fingerprint fallback** — if GPS match fails, checks WiFi records collected during that stay for a `connectedBssid` that matches any known place's `wifiFingerprint` list.
+
+This means places with poor GPS (indoor offices, underground garages) can still show their correct name if you've added their WiFi BSSID to the place's fingerprint.
 
 ---
 
@@ -57,12 +68,13 @@ All 10 collectors run via the foreground service and save to SQLDelight DB:
 | `ActivityCollector` | On transition | Event-driven (ActivityRecognition transitions) |
 | `WifiCollector` | 5 min | Polling |
 | `ConnectivityCollector` | 5 min | Polling |
-| `AppUsageCollector` | (polling) | Polling |
+| `AppUsageCollector` | 15 min | Polling |
 | `ScreenStateCollector` | On change | Event-driven (BroadcastReceiver) |
-| `AudioLevelCollector` | (polling) | Polling |
-| `BatteryCollector` | (polling) | Polling |
-| `BarometerCollector` | (polling) | Polling |
-| `LightCollector` | (polling) | Polling |
+| `AudioLevelCollector` | 60 sec | Polling |
+| `BatteryCollector` | 5 min | Polling |
+| `BarometerCollector` | 30 sec | Polling |
+| `LightCollector` | 60 sec | Polling |
+| `CallLogCollector` | 2 min | Polling (ContentResolver query) |
 
 All records go to the `collected_records` table. Location also writes a denormalized row to `location_records` for fast spatial queries.
 

@@ -1,5 +1,7 @@
 package com.blackbox.domain.usecase.timeline
 
+import com.blackbox.domain.model.record.CallType
+import com.blackbox.domain.model.record.CollectedRecord
 import com.blackbox.domain.model.record.CollectorType
 import com.blackbox.domain.model.record.RecordData
 import com.blackbox.domain.model.timeline.TimelineEntry
@@ -47,7 +49,10 @@ class GetTimelineUseCase(
 
             // Add location-based entries
             val locations = locationRepository.getLocationsInRange(startTime, endTime)
-            entries.addAll(buildLocationEntries(locations))
+            val wifiRecords = recordRepository.getRecordsByTypeInRange(
+                CollectorType.WIFI, startTime, endTime,
+            )
+            entries.addAll(buildLocationEntries(locations, wifiRecords))
 
             // Add activity entries
             val activityRecords = recordRepository.getRecordsByTypeInRange(
@@ -62,6 +67,31 @@ class GetTimelineUseCase(
                         title = activityData.detectedActivity.name,
                         subtitle = "Confidence: ${activityData.confidence}%",
                         iconType = "activity_${activityData.detectedActivity.name.lowercase()}",
+                    )
+                )
+            }
+
+            // Add call log entries
+            val callRecords = recordRepository.getRecordsByTypeInRange(
+                CollectorType.CALL_LOG, startTime, endTime,
+            )
+            for (record in callRecords) {
+                val callData = (record.data as? RecordData.CallLog)?.callLogData ?: continue
+                val durationStr = formatDuration(callData.durationSeconds)
+                val title = when (callData.callType) {
+                    CallType.INCOMING -> if (durationStr.isNotEmpty()) "Incoming call · $durationStr" else "Incoming call"
+                    CallType.OUTGOING -> if (durationStr.isNotEmpty()) "Outgoing call · $durationStr" else "Outgoing call"
+                    CallType.MISSED -> "Missed call"
+                    CallType.REJECTED -> "Rejected call"
+                    CallType.VOICEMAIL -> "Voicemail"
+                    CallType.UNKNOWN -> "Call"
+                }
+                entries.add(
+                    TimelineEntry(
+                        startTimestamp = record.timestamp,
+                        type = TimelineEntryType.EVENT,
+                        title = title,
+                        iconType = "call_${callData.callType.name.lowercase()}",
                     )
                 )
             }
@@ -87,8 +117,14 @@ class GetTimelineUseCase(
 
     /**
      * Groups consecutive location points into location stay entries.
+     *
+     * @param locations Ordered list of location entries.
+     * @param wifiRecords WiFi records for the same time range — used for indoor place matching.
      */
-    private suspend fun buildLocationEntries(locations: List<LocationEntry>): List<TimelineEntry> {
+    private suspend fun buildLocationEntries(
+        locations: List<LocationEntry>,
+        wifiRecords: List<CollectedRecord>,
+    ): List<TimelineEntry> {
         if (locations.isEmpty()) return emptyList()
 
         val entries = mutableListOf<TimelineEntry>()
@@ -105,18 +141,42 @@ class GetTimelineUseCase(
             if (distance < STAY_RADIUS_METERS) {
                 groupEnd = current
             } else {
-                entries.add(buildStayEntry(groupStart, groupEnd))
+                entries.add(buildStayEntry(groupStart, groupEnd, wifiRecords))
                 groupStart = current
                 groupEnd = current
             }
         }
 
-        entries.add(buildStayEntry(groupStart, groupEnd))
+        entries.add(buildStayEntry(groupStart, groupEnd, wifiRecords))
         return entries
     }
 
-    private suspend fun buildStayEntry(start: LocationEntry, end: LocationEntry): TimelineEntry {
-        val place = placeRepository.findNearestPlace(start.latitude, start.longitude)
+    /**
+     * Builds a [TimelineEntry] for a single location stay.
+     *
+     * Place lookup order:
+     * 1. GPS-based nearest place within radius.
+     * 2. WiFi BSSID matching — finds the WiFi record closest to the stay start
+     *    and checks if its BSSID belongs to any known place's fingerprint.
+     */
+    private suspend fun buildStayEntry(
+        start: LocationEntry,
+        end: LocationEntry,
+        wifiRecords: List<CollectedRecord>,
+    ): TimelineEntry {
+        var place = placeRepository.findNearestPlace(start.latitude, start.longitude)
+
+        // WiFi-based fallback: match by router BSSID stored in the place's fingerprint
+        if (place == null) {
+            val nearestBssid = wifiRecords
+                .filter { it.timestamp in start.timestamp..end.timestamp }
+                .mapNotNull { (it.data as? RecordData.Wifi)?.wifiData?.connectedBssid }
+                .firstOrNull()
+            if (nearestBssid != null) {
+                place = placeRepository.findPlaceByWifiBssid(nearestBssid)
+            }
+        }
+
         val title = place?.name ?: "(%.4f, %.4f)".format(start.latitude, start.longitude)
         val durationMs = end.timestamp - start.timestamp
         val durationMin = durationMs / 60_000
@@ -130,6 +190,14 @@ class GetTimelineUseCase(
             iconType = "location",
             place = place,
         )
+    }
+
+    /** Formats a call duration in seconds to a concise "Xm Ys" string. */
+    private fun formatDuration(seconds: Int): String {
+        if (seconds <= 0) return ""
+        val mins = seconds / 60
+        val secs = seconds % 60
+        return if (mins > 0) "${mins}m ${secs}s" else "${secs}s"
     }
 
     /** Approximates distance between two coordinates in meters. */

@@ -39,6 +39,8 @@ object InsightsContract {
         data object Refresh : Action
         /** User tapped retry on the observations card after an LLM failure. */
         data object RetryObservations : Action
+        /** Screen came back into focus (e.g. navigated back from another screen). */
+        data object ScreenResumed : Action
     }
 
     /**

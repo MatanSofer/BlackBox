@@ -17,14 +17,22 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
- * Periodic WorkManager worker that generates daily summaries.
+ * Periodic WorkManager worker that runs nightly maintenance tasks.
  *
- * Runs once per day (scheduled near midnight) to aggregate all raw
- * records from the previous day into a [DailySummary]. The summary
- * is stored for fast query responses and insight calculations.
+ * Scheduled once every 24 hours near midnight. Performs two jobs:
  *
- * Also runs [DetectKnownPlacesUseCase] after summary generation to keep
- * the known-places list up-to-date from the previous day's location data.
+ * 1. **Hash-chain integrity** — [GenerateDailySummaryUseCase] aggregates the previous
+ *    day's raw records into a [DailySummary] row that contains a SHA-256 day hash
+ *    and a pointer to the previous day's hash. This tamper-detection chain remains
+ *    in the [DailySummary] table even though the Insights screen now derives all its
+ *    charts directly from raw [CollectedRecord] data (see [GetInsightsBriefUseCase]).
+ *
+ * 2. **Place detection** — [DetectKnownPlacesUseCase] clusters yesterday's location
+ *    data to auto-detect new or updated [KnownPlace] entries.
+ *
+ * > **Note:** The [DailySummary] rows are no longer the primary data source for
+ * > Insights charts. `GetInsightsBriefUseCase` reads raw records directly to guarantee
+ * > exactly 7 trend entries even if this worker was skipped on a given night.
  *
  * Uses Koin for dependency injection via [KoinComponent].
  */

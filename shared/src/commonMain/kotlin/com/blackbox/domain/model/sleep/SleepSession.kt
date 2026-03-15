@@ -13,6 +13,8 @@ package com.blackbox.domain.model.sleep
  * @property durationMs Total sleep duration in milliseconds.
  * @property durationMinutes Convenience: [durationMs] converted to whole minutes.
  * @property quality Inferred quality tier based on duration.
+ * @property lightValidated Whether ambient light data confirms darkness during the session.
+ *   True = ≥70% dark/dim readings, false = <30% dark/dim readings, null = insufficient data.
  */
 data class SleepSession(
     val date: String,
@@ -21,6 +23,7 @@ data class SleepSession(
     val durationMs: Long,
     val durationMinutes: Int,
     val quality: SleepQuality,
+    val lightValidated: Boolean? = null,
 )
 
 /**

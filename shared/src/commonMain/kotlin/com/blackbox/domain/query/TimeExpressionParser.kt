@@ -94,9 +94,24 @@ class TimeExpressionParser(
             }
         }
 
-        // "N days/hours/minutes ago"
+        // "in the last N / past N hours/days/minutes"
+        LAST_N_PATTERN_EN.find(text)?.let { match ->
+            val amount = parseWordOrDigit(match.groupValues[1]) ?: return@let
+            val unit = match.groupValues[2]
+            val ms = when {
+                unit.startsWith("minute") -> amount * MINUTE_MS
+                unit.startsWith("hour") -> amount * HOUR_MS
+                unit.startsWith("day") -> amount * DAY_MS
+                unit.startsWith("week") -> amount * WEEK_MS
+                unit.startsWith("month") -> amount * 30 * DAY_MS
+                else -> return@let
+            }
+            return TimeRange(now - ms, now)
+        }
+
+        // "N days/hours/minutes ago" (word numbers supported: "two days ago")
         RELATIVE_PATTERN_EN.find(text)?.let { match ->
-            val amount = match.groupValues[1].toLongOrNull() ?: return@let
+            val amount = parseWordOrDigit(match.groupValues[1]) ?: return@let
             val unit = match.groupValues[2]
             val ms = when {
                 unit.startsWith("minute") -> amount * MINUTE_MS
@@ -258,6 +273,24 @@ class TimeExpressionParser(
     }
 
     /**
+     * Parses a number that may be written as a digit string or English word.
+     * Returns null if unrecognized.
+     */
+    private fun parseWordOrDigit(token: String): Long? = when (token.trim()) {
+        "a", "an", "one" -> 1L
+        "two" -> 2L
+        "three" -> 3L
+        "four" -> 4L
+        "five" -> 5L
+        "six" -> 6L
+        "seven" -> 7L
+        "eight" -> 8L
+        "nine" -> 9L
+        "ten" -> 10L
+        else -> token.toLongOrNull()
+    }
+
+    /**
      * Returns the start of the local calendar day (midnight in the device's timezone)
      * for the given epoch ms.
      *
@@ -309,7 +342,11 @@ class TimeExpressionParser(
         const val DAY_MS = 86_400_000L
         private const val WEEK_MS = 7 * DAY_MS
 
-        private val RELATIVE_PATTERN_EN = Regex("""(\d+)\s+(minute|hour|day|week|month)s?\s+ago""")
+        /** Matches "two days ago", "3 hours ago", "a week ago". */
+        private val RELATIVE_PATTERN_EN = Regex("""(a\b|\d+|\b(?:one|two|three|four|five|six|seven|eight|nine|ten))\s+(minute|hour|day|week|month)s?\s+ago""")
+
+        /** Matches "in the last 3 hours", "past two days", "last 24 hours". */
+        private val LAST_N_PATTERN_EN = Regex("""(?:in\s+the\s+last|past|last)\s+(a\b|\d+|\b(?:one|two|three|four|five|six|seven|eight|nine|ten))\s+(minute|hour|day|week|month)s?\b""")
         private val RELATIVE_PATTERN_HE = Regex("""לפני\s+(\d+)\s+(דקות?|שעות?|ימים?|יום|שבועות?|חודשים?|חדשים?)""")
 
         /** English day names → day-of-week (0=Sun). */

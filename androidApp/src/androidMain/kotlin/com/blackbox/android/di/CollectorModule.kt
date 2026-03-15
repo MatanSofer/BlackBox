@@ -18,7 +18,8 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 /**
- * Koin module providing collector infrastructure singletons.
+ * Koin module providing collector inf
+ * rastructure singletons.
  *
  * The [CollectorOrchestrator] is a singleton that manages all collectors.
  * Each collector is registered with the orchestrator after creation.

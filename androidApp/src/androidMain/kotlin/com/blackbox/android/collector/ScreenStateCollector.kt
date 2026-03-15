@@ -78,6 +78,18 @@ class ScreenStateCollector(
         }
 
         logger.i(TAG, "Screen state receiver registered")
+
+        // Emit a synthetic state record to anchor the current screen state at startup.
+        // This ensures:
+        //   - If screen is ON:  a synthetic ON so the current session is tracked for screen time.
+        //   - If screen is OFF: a synthetic OFF so an ongoing sleep session is not missed
+        //                       (e.g. after a phone reboot or service restart while asleep).
+        val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val syntheticState = if (pm?.isInteractive == true) ScreenState.ON else ScreenState.OFF
+        scope.launch {
+            handleScreenEvent(syntheticState)
+            logger.d(TAG, "Emitted synthetic $syntheticState at collector start")
+        }
     }
 
     override fun onCollectorStopped() {

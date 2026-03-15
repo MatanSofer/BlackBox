@@ -1,5 +1,7 @@
 # BlackBox — UI Screen Specifications
 
+> ⚠️ **Theme is outdated in this document.** The spec below describes a dark blue + amber theme. The actual implemented theme is cyberpunk: near-black `#050510` background, neon green `#00FF41`, electric cyan `#00D4FF`, magenta `#FF0064`, monospace fonts, sharp corners, scan-line overlay. See `shared/src/commonMain/kotlin/com/blackbox/ui/theme/` for the live implementation.
+
 ---
 
 ## 1. Design System
@@ -325,9 +327,31 @@ object TimelineContract {
 └─────────────────────────────────────┘
 ```
 
+### Known places management (Places mode)
+
+Each place row shows two action buttons:
+- **Pencil icon** (indigo) — opens the Edit Place dialog
+- **Trash icon** (gray) — permanently deletes the place
+
+**Add Place dialog** (opened by the + FAB): Name, Category chips, Lat/Lng text fields, Radius slider (50–500m).
+
+**Edit Place dialog** (opened by pencil): Same Name / Category / Radius fields, pre-filled with current values. Coordinates are intentionally not editable — moving a place requires delete + re-create.
+
+### Key files
+- `shared/.../domain/usecase/map/GetDayLocationSummaryUseCase.kt`
+- `shared/.../ui/map/MapViewModel.kt`
+- `shared/.../ui/map/MapContent.kt` — OsmMapView, PlacesList, AddPlaceDialog, EditPlaceDialog
+- `shared/.../ui/map/MapContract.kt` — AddPlaceDialogState, EditPlaceDialogState
+- `shared/.../domain/usecase/place/UpdatePlaceUseCase.kt`
+- `shared/.../domain/model/map/LocationStay.kt`
+
 ### 3.4 Insights Screen
 
 **Purpose:** Display patterns, trends, and behavioral insights.
+
+**Data guarantees:** All three weekly charts (Steps, Screen Time, Sleep) always render exactly 7 bars — one per day. Data is sourced from raw collector records rather than pre-computed DailySummary rows, so the charts are never missing bars due to a missed nightly worker run. Sleep bars for nights with no detectable data render at 20% height in muted gray (rather than disappearing); only non-null bars are tappable.
+
+**Top contacts card:** When CALL_LOG data is available, a `TopContactsCard` appears below the top places / top apps row, showing up to 5 contacts ranked by call count. Each row shows display name (or "Unknown" for unsaved numbers), call count, total duration, and missed call count. No additional permissions beyond `READ_CALL_LOG` are needed — contact names come from `CallLog.Calls.CACHED_NAME`.
 
 **Layout:**
 ```

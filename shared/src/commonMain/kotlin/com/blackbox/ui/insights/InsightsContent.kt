@@ -52,6 +52,7 @@ import com.blackbox.domain.model.sleep.SleepSession
 import com.blackbox.domain.repository.DailyScreenTime
 import com.blackbox.domain.repository.DailyStepCount
 import com.blackbox.domain.usecase.insight.AppUsageStat
+import com.blackbox.domain.usecase.insight.ContactCallStat
 import com.blackbox.domain.usecase.insight.InsightsBrief
 import com.blackbox.domain.usecase.insight.PlaceVisit
 import com.blackbox.ui.common.ErrorView
@@ -145,6 +146,11 @@ private fun InsightsFeed(
         // Today hero
         item { TodayHeroCard(brief = brief) }
 
+        // Today's app breakdown
+        if (brief.todayTopApps.isNotEmpty()) {
+            item { AppBreakdownCard(apps = brief.todayTopApps) }
+        }
+
         // Week charts
         item {
             SectionLabel(text = "This week")
@@ -182,6 +188,11 @@ private fun InsightsFeed(
                     }
                 }
             }
+        }
+
+        // Top contacts
+        if (brief.weekTopContacts.isNotEmpty()) {
+            item { TopContactsCard(contacts = brief.weekTopContacts) }
         }
 
         // Observations
@@ -318,35 +329,116 @@ private fun SmallStatCard(
     }
 }
 
+// ── App breakdown card ────────────────────────────────────────────────────────
+
+@Composable
+private fun AppBreakdownCard(apps: List<AppUsageStat>, modifier: Modifier = Modifier) {
+    val totalMinutes = apps.sumOf { it.totalMinutes }.coerceAtLeast(1L)
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
+            .padding(Dimens.PaddingCard),
+        verticalArrangement = Arrangement.spacedBy(Dimens.SpacingXs),
+    ) {
+        Text(
+            text = "Screen time today",
+            style = MaterialTheme.typography.titleSmall,
+            color = BlackBoxColors.TextPrimary,
+            modifier = Modifier.padding(bottom = 2.dp),
+        )
+        apps.forEach { app ->
+            val fraction = app.totalMinutes.toFloat() / totalMinutes
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = app.displayName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = BlackBoxColors.TextSecondary,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = formatMinutesShort(app.totalMinutes.toInt()),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = BlackBoxColors.Teal,
+                    )
+                }
+                // Progress bar
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .background(BlackBoxColors.SurfaceElevated, RoundedCornerShape(2.dp)),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction.coerceIn(0.02f, 1f))
+                            .height(4.dp)
+                            .background(BlackBoxColors.Teal.copy(alpha = 0.7f), RoundedCornerShape(2.dp)),
+                    )
+                }
+            }
+        }
+    }
+}
+
 // ── Trend cards ───────────────────────────────────────────────────────────────
 
 @Composable
 private fun StepTrendCard(trend: List<DailyStepCount>, avg: Int, modifier: Modifier = Modifier) {
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+    val selectedDay = selectedIndex?.let { trend.getOrNull(it) }
+
+    val subtitle = if (selectedDay != null)
+        "${selectedDay.date.dayAbbrev()} · ${selectedDay.steps.formatK()}"
+    else
+        "avg ${avg.formatK()}/day"
+
     TrendCard(
         title = "Steps",
-        subtitle = "avg ${avg.formatK()}/day",
+        subtitle = subtitle,
         barValues = trend.map { it.steps.toFloat() },
         barLabels = trend.map { it.date.dayAbbrev() },
         barColor = BlackBoxColors.Indigo,
+        selectedBarIndex = selectedIndex,
+        onBarTapped = { index -> selectedIndex = if (selectedIndex == index) null else index },
+        detailContent = selectedDay?.let { day -> { StepDayDetail(day = day, avg = avg) } },
         modifier = modifier,
     )
 }
 
 @Composable
 private fun ScreenTrendCard(trend: List<DailyScreenTime>, avg: Int, modifier: Modifier = Modifier) {
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+    val selectedDay = selectedIndex?.let { trend.getOrNull(it) }
+
+    val subtitle = if (selectedDay != null)
+        "${selectedDay.date.dayAbbrev()} · ${formatMinutes(selectedDay.totalMinutes)}"
+    else
+        "avg ${formatMinutes(avg)}/day"
+
     TrendCard(
         title = "Screen time",
-        subtitle = "avg ${formatMinutes(avg)}/day",
+        subtitle = subtitle,
         barValues = trend.map { it.totalMinutes.toFloat() },
         barLabels = trend.map { it.date.dayAbbrev() },
         barColor = BlackBoxColors.Teal,
+        selectedBarIndex = selectedIndex,
+        onBarTapped = { index -> selectedIndex = if (selectedIndex == index) null else index },
+        detailContent = selectedDay?.let { day -> { ScreenDayDetail(day = day) } },
         modifier = modifier,
     )
 }
 
 @Composable
 private fun SleepTrendCard(
-    trend: List<SleepSession>,
+    trend: List<SleepSession?>,
     lastNight: SleepSession?,
     avg: Int,
     modifier: Modifier = Modifier,
@@ -369,15 +461,30 @@ private fun SleepTrendCard(
         else                    -> "no data yet"
     }
 
+    // Compute bar labels: use the session's date if available; otherwise derive from today.
+    val barLabels = trend.mapIndexed { i, session ->
+        session?.date?.dayAbbrev() ?: run {
+            val cal = Calendar.getInstance()
+            cal.add(Calendar.DAY_OF_YEAR, -(trend.size - 1 - i))
+            arrayOf("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa")[cal.get(Calendar.DAY_OF_WEEK) - 1]
+        }
+    }
+
+    val noDataIndices = trend.mapIndexedNotNull { i, s -> if (s == null) i else null }.toSet()
+
     TrendCard(
         title = "Sleep",
         subtitle = subtitle,
-        barValues = trend.map { it.durationMinutes.toFloat() },
-        barLabels = trend.map { it.date.dayAbbrev() },
+        barValues = trend.map { it?.durationMinutes?.toFloat() ?: 0f },
+        barLabels = barLabels,
         barColor = BlackBoxColors.AccentScreen,
+        noDataIndices = noDataIndices,
         selectedBarIndex = selectedIndex,
         onBarTapped = { index ->
-            selectedIndex = if (selectedIndex == index) null else index
+            // Null-session bars are not interactive
+            if (trend.getOrNull(index) != null) {
+                selectedIndex = if (selectedIndex == index) null else index
+            }
         },
         detailContent = selectedSession?.let { session ->
             { SleepSessionDetail(session = session) }
@@ -436,6 +543,80 @@ private fun SleepDetailRow(
 }
 
 @Composable
+private fun StepDayDetail(day: DailyStepCount, avg: Int, modifier: Modifier = Modifier) {
+    val dateLabel = remember(day.date) {
+        try {
+            val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(day.date)!!
+            SimpleDateFormat("EEEE, d MMM", Locale.getDefault()).format(parsed)
+        } catch (_: Exception) { day.date }
+    }
+    val vsAvgPct = if (avg > 0) ((day.steps.toFloat() / avg - 1f) * 100).toInt() else null
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(BlackBoxColors.SurfaceElevated, RoundedCornerShape(Dimens.RadiusSm))
+            .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingSm),
+        verticalArrangement = Arrangement.spacedBy(Dimens.SpacingXxs),
+    ) {
+        Text(
+            text = dateLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = BlackBoxColors.TextTertiary,
+        )
+        SleepDetailRow(
+            label = "Steps",
+            value = day.steps.formatK(),
+            valueColor = BlackBoxColors.Indigo,
+        )
+        if (vsAvgPct != null) {
+            val sign = if (vsAvgPct >= 0) "+" else ""
+            SleepDetailRow(
+                label = "vs 7-day avg",
+                value = "$sign${vsAvgPct}%",
+                valueColor = if (vsAvgPct >= 0) BlackBoxColors.Success else BlackBoxColors.Error,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ScreenDayDetail(day: DailyScreenTime, modifier: Modifier = Modifier) {
+    val dateLabel = remember(day.date) {
+        try {
+            val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(day.date)!!
+            SimpleDateFormat("EEEE, d MMM", Locale.getDefault()).format(parsed)
+        } catch (_: Exception) { day.date }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(BlackBoxColors.SurfaceElevated, RoundedCornerShape(Dimens.RadiusSm))
+            .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingSm),
+        verticalArrangement = Arrangement.spacedBy(Dimens.SpacingXxs),
+    ) {
+        Text(
+            text = dateLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = BlackBoxColors.TextTertiary,
+        )
+        SleepDetailRow(
+            label = "Screen time",
+            value = formatMinutes(day.totalMinutes),
+            valueColor = BlackBoxColors.Teal,
+        )
+        if (day.pickupCount > 0) {
+            SleepDetailRow(
+                label = "Pickups",
+                value = "${day.pickupCount}",
+                valueColor = BlackBoxColors.TealLight,
+            )
+        }
+    }
+}
+
+@Composable
 private fun TrendCard(
     title: String,
     subtitle: String,
@@ -443,6 +624,7 @@ private fun TrendCard(
     barLabels: List<String>,
     barColor: Color,
     modifier: Modifier = Modifier,
+    noDataIndices: Set<Int> = emptySet(),
     selectedBarIndex: Int? = null,
     onBarTapped: ((Int) -> Unit)? = null,
     detailContent: (@Composable () -> Unit)? = null,
@@ -482,6 +664,7 @@ private fun TrendCard(
                 values = barValues,
                 labels = barLabels,
                 barColor = barColor,
+                noDataIndices = noDataIndices,
                 selectedBarIndex = selectedBarIndex,
                 onBarTapped = onBarTapped,
                 modifier = Modifier
@@ -507,12 +690,14 @@ private fun GradientBarChart(
     labels: List<String>,
     barColor: Color,
     modifier: Modifier = Modifier,
+    noDataIndices: Set<Int> = emptySet(),
     selectedBarIndex: Int? = null,
     onBarTapped: ((Int) -> Unit)? = null,
 ) {
     val max = values.maxOrNull()?.coerceAtLeast(1f) ?: 1f
     val gradient = barGradient(barColor)
     val dimColor = barColor.copy(alpha = 0.2f)
+    val noDataColor = Color(0x33808080)  // muted gray for "no data" bars
 
     val density = LocalDensity.current
     val gapPx = with(density) { 4.dp.toPx() }
@@ -546,10 +731,11 @@ private fun GradientBarChart(
             val corner = CornerRadius(4.dp.toPx())
 
             values.forEachIndexed { i, value ->
-                val ratio = value / max
-                val barHeight = (size.height * ratio).coerceAtLeast(2.dp.toPx())
-                val x = i * (barWidth + gapPx)
-                val y = size.height - barHeight
+                val isNoData   = noDataIndices.contains(i)
+                val ratio      = if (isNoData) 0.2f else value / max
+                val barHeight  = (size.height * ratio).coerceAtLeast(2.dp.toPx())
+                val x          = i * (barWidth + gapPx)
+                val y          = size.height - barHeight
                 val isSelected = selectedBarIndex == null || selectedBarIndex == i
 
                 // Track (background bar)
@@ -559,21 +745,31 @@ private fun GradientBarChart(
                     size = Size(barWidth, size.height),
                     cornerRadius = corner,
                 )
-                // Gradient fill — dim unselected bars
-                drawRoundRect(
-                    brush = if (isSelected) gradient
-                        else Brush.verticalGradient(listOf(dimColor, dimColor)),
-                    topLeft = Offset(x, y),
-                    size = Size(barWidth, barHeight),
-                    cornerRadius = corner,
-                )
-                // Dot indicator on selected bar
-                if (selectedBarIndex == i) {
-                    drawCircle(
-                        color = barColor,
-                        radius = 3.dp.toPx(),
-                        center = Offset(x + barWidth / 2, y - 6.dp.toPx()),
+                if (isNoData) {
+                    // "No data" bar — fixed 20% height, muted gray, no selection dot
+                    drawRoundRect(
+                        color = noDataColor,
+                        topLeft = Offset(x, y),
+                        size = Size(barWidth, barHeight),
+                        cornerRadius = corner,
                     )
+                } else {
+                    // Gradient fill — dim unselected bars
+                    drawRoundRect(
+                        brush = if (isSelected) gradient
+                            else Brush.verticalGradient(listOf(dimColor, dimColor)),
+                        topLeft = Offset(x, y),
+                        size = Size(barWidth, barHeight),
+                        cornerRadius = corner,
+                    )
+                    // Dot indicator on selected bar
+                    if (selectedBarIndex == i) {
+                        drawCircle(
+                            color = barColor,
+                            radius = 3.dp.toPx(),
+                            center = Offset(x + barWidth / 2, y - 6.dp.toPx()),
+                        )
+                    }
                 }
             }
         }
@@ -644,6 +840,86 @@ private fun TopListCard(
                 )
             }
         }
+    }
+}
+
+// ── Top contacts card ─────────────────────────────────────────────────────────
+
+/**
+ * Shows the top 5 contacts by call count this week.
+ * Each row displays the contact name, total calls, and total connected duration.
+ */
+@Composable
+private fun TopContactsCard(
+    contacts: List<ContactCallStat>,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .obsidianCard(cornerRadius = Dimens.RadiusMd)
+            .padding(Dimens.PaddingCard),
+        verticalArrangement = Arrangement.spacedBy(Dimens.SpacingXs),
+    ) {
+        Text(
+            text = "Top contacts",
+            style = MaterialTheme.typography.titleSmall,
+            color = BlackBoxColors.TextPrimary,
+            modifier = Modifier.padding(bottom = 2.dp),
+        )
+        contacts.forEachIndexed { index, contact ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingSm),
+            ) {
+                Text(
+                    text = "${index + 1}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = BlackBoxColors.TextTertiary,
+                    modifier = Modifier.width(14.dp),
+                )
+                Text(
+                    text = contact.displayName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = BlackBoxColors.TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "${contact.totalCalls} call${if (contact.totalCalls != 1) "s" else ""}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = BlackBoxColors.Rose,
+                    )
+                    if (contact.totalDurationSeconds > 0) {
+                        Text(
+                            text = formatCallDuration(contact.totalDurationSeconds),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = BlackBoxColors.TextTertiary,
+                        )
+                    } else if (contact.missedCount > 0) {
+                        Text(
+                            text = "${contact.missedCount} missed",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = BlackBoxColors.TextTertiary,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun formatCallDuration(totalSeconds: Int): String {
+    val h = totalSeconds / 3600
+    val m = (totalSeconds % 3600) / 60
+    val s = totalSeconds % 60
+    return when {
+        h > 0 -> "${h}h ${m}m"
+        m > 0 -> "${m}m ${s}s"
+        else  -> "${s}s"
     }
 }
 

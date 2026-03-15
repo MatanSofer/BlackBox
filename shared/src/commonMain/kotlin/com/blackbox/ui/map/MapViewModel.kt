@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.blackbox.domain.model.place.KnownPlace
 import com.blackbox.domain.repository.RecordRepository
 import com.blackbox.domain.usecase.map.GetDayLocationSummaryUseCase
+import com.blackbox.domain.usecase.place.DeletePlaceUseCase
 import com.blackbox.domain.usecase.place.GetPlacesUseCase
 import com.blackbox.domain.usecase.place.SavePlaceUseCase
+import com.blackbox.domain.usecase.place.UpdatePlaceUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -41,6 +43,8 @@ class MapViewModel(
     private val recordRepository: RecordRepository,
     private val getPlacesUseCase: GetPlacesUseCase,
     private val savePlaceUseCase: SavePlaceUseCase,
+    private val deletePlaceUseCase: DeletePlaceUseCase,
+    private val updatePlaceUseCase: UpdatePlaceUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MapContract.State())
@@ -103,7 +107,21 @@ class MapViewModel(
                 _state.update { it.copy(addPlaceDialog = it.addPlaceDialog?.copy(latText = action.text)) }
             is MapContract.Action.AddPlaceLngChanged ->
                 _state.update { it.copy(addPlaceDialog = it.addPlaceDialog?.copy(lngText = action.text)) }
+            is MapContract.Action.AddPlaceRadiusChanged ->
+                _state.update { it.copy(addPlaceDialog = it.addPlaceDialog?.copy(radiusMeters = action.radiusMeters)) }
             is MapContract.Action.ConfirmAddPlace -> handleConfirmAddPlace()
+            is MapContract.Action.DeletePlace -> handleDeletePlace(action.placeId)
+            is MapContract.Action.OpenEditPlaceDialog ->
+                _state.update { it.copy(editPlaceDialog = MapContract.EditPlaceDialogState(originalPlace = action.place)) }
+            is MapContract.Action.DismissEditPlaceDialog ->
+                _state.update { it.copy(editPlaceDialog = null) }
+            is MapContract.Action.EditPlaceNameChanged ->
+                _state.update { it.copy(editPlaceDialog = it.editPlaceDialog?.copy(name = action.name)) }
+            is MapContract.Action.EditPlaceCategoryChanged ->
+                _state.update { it.copy(editPlaceDialog = it.editPlaceDialog?.copy(category = action.category)) }
+            is MapContract.Action.EditPlaceRadiusChanged ->
+                _state.update { it.copy(editPlaceDialog = it.editPlaceDialog?.copy(radiusMeters = action.radiusMeters)) }
+            is MapContract.Action.ConfirmEditPlace -> handleConfirmEditPlace()
         }
     }
 
@@ -159,6 +177,7 @@ class MapViewModel(
                 name = dialog.name.trim(),
                 latitude = dialog.latText.toDouble(),
                 longitude = dialog.lngText.toDouble(),
+                radiusMeters = dialog.radiusMeters.toDouble(),
                 category = dialog.category,
                 isAutoDetected = false,
                 createdAt = now,
@@ -172,6 +191,42 @@ class MapViewModel(
                 }
                 .onFailure {
                     _events.emit(MapContract.Event.ShowSnackbar("Failed to save place"))
+                }
+        }
+    }
+
+    private fun handleConfirmEditPlace() {
+        val dialog = _state.value.editPlaceDialog ?: return
+        if (!dialog.isValid) return
+
+        viewModelScope.launch {
+            val updated = dialog.originalPlace.copy(
+                name = dialog.name.trim(),
+                category = dialog.category,
+                radiusMeters = dialog.radiusMeters.toDouble(),
+                updatedAt = System.currentTimeMillis(),
+            )
+            updatePlaceUseCase(updated)
+                .onSuccess {
+                    _state.update { it.copy(editPlaceDialog = null) }
+                    loadPlaces()
+                    _events.emit(MapContract.Event.ShowSnackbar("Place updated"))
+                }
+                .onFailure {
+                    _events.emit(MapContract.Event.ShowSnackbar("Failed to update place"))
+                }
+        }
+    }
+
+    private fun handleDeletePlace(placeId: Long) {
+        viewModelScope.launch {
+            deletePlaceUseCase(placeId)
+                .onSuccess {
+                    loadPlaces()
+                    _events.emit(MapContract.Event.ShowSnackbar("Place removed"))
+                }
+                .onFailure {
+                    _events.emit(MapContract.Event.ShowSnackbar("Failed to remove place"))
                 }
         }
     }

@@ -13,6 +13,9 @@ import kotlinx.serialization.Serializable
  * @property durationSeconds Length of the call in seconds. 0 for missed/rejected calls.
  * @property numberHash SHA-256 of the cleaned E.164 number, first 8 bytes as 16 hex chars.
  * @property callTimestamp Actual call start time in epoch milliseconds.
+ * @property contactName Display name cached from the system call log at collection time, or null
+ *   if the number was not in the contacts list. Sourced from [android.provider.CallLog.Calls.CACHED_NAME] —
+ *   no [android.Manifest.permission.READ_CONTACTS] required.
  */
 @Serializable
 data class CallLogData(
@@ -20,6 +23,7 @@ data class CallLogData(
     val durationSeconds: Int,
     val numberHash: String,
     val callTimestamp: Long,
+    val contactName: String? = null,
 )
 
 /**

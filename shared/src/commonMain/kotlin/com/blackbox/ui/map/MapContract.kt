@@ -21,18 +21,40 @@ object MapContract {
      * @property category Selected place category.
      * @property latText Latitude as an editable string.
      * @property lngText Longitude as an editable string.
+     * @property radiusMeters Geofence radius in metres (50–500m).
      */
     data class AddPlaceDialogState(
         val name: String = "",
         val category: PlaceCategory = PlaceCategory.OTHER,
         val latText: String = "0.0",
         val lngText: String = "0.0",
+        val radiusMeters: Float = 100f,
     ) {
         /** True when all fields are valid and the place can be saved. */
         val isValid: Boolean
             get() = name.isNotBlank() &&
                 latText.toDoubleOrNull() != null &&
                 lngText.toDoubleOrNull() != null
+    }
+
+    /**
+     * Transient state for the "Edit Place" dialog.
+     *
+     * Coordinates are not editable here — only name, category, and radius.
+     *
+     * @property originalPlace The place being edited (read-only; used to build the updated copy).
+     * @property name Edited place name.
+     * @property category Edited place category.
+     * @property radiusMeters Edited geofence radius in metres (50–500m).
+     */
+    data class EditPlaceDialogState(
+        val originalPlace: KnownPlace,
+        val name: String = originalPlace.name,
+        val category: PlaceCategory = originalPlace.category,
+        val radiusMeters: Float = originalPlace.radiusMeters.toFloat(),
+    ) {
+        /** True when the name is not blank. */
+        val isValid: Boolean get() = name.isNotBlank()
     }
 
     /**
@@ -66,6 +88,8 @@ object MapContract {
         val playbackIndex: Int = 0,
         /** Non-null while the Add Place dialog is open. */
         val addPlaceDialog: AddPlaceDialogState? = null,
+        /** Non-null while the Edit Place dialog is open. */
+        val editPlaceDialog: EditPlaceDialogState? = null,
     )
 
     /**
@@ -104,8 +128,24 @@ object MapContract {
         data class AddPlaceLatChanged(val text: String) : Action
         /** Update the longitude text in the Add Place dialog. */
         data class AddPlaceLngChanged(val text: String) : Action
+        /** Update the geofence radius in the Add Place dialog. */
+        data class AddPlaceRadiusChanged(val radiusMeters: Float) : Action
         /** Confirm and save the new place. */
         data object ConfirmAddPlace : Action
+        /** Permanently delete a known place. */
+        data class DeletePlace(val placeId: Long) : Action
+        /** Open the Edit Place dialog pre-filled with [place]'s current values. */
+        data class OpenEditPlaceDialog(val place: KnownPlace) : Action
+        /** Dismiss the Edit Place dialog without saving. */
+        data object DismissEditPlaceDialog : Action
+        /** Update the name field in the Edit Place dialog. */
+        data class EditPlaceNameChanged(val name: String) : Action
+        /** Update the category in the Edit Place dialog. */
+        data class EditPlaceCategoryChanged(val category: PlaceCategory) : Action
+        /** Update the geofence radius in the Edit Place dialog. */
+        data class EditPlaceRadiusChanged(val radiusMeters: Float) : Action
+        /** Confirm and persist the edited place. */
+        data object ConfirmEditPlace : Action
     }
 
     /**

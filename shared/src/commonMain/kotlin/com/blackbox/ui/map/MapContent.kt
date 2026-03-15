@@ -25,7 +25,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Place
@@ -36,6 +38,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -169,7 +173,11 @@ fun MapContent(
                                 title = "No Places Yet",
                                 message = "Tap + to add a place manually,\nor keep BlackBox running to auto-detect.",
                             )
-                            else -> PlacesList(places = state.places)
+                            else -> PlacesList(
+                                places = state.places,
+                                onDelete = { onAction(MapContract.Action.DeletePlace(it)) },
+                                onEdit = { onAction(MapContract.Action.OpenEditPlaceDialog(it)) },
+                            )
                         }
                     }
 
@@ -197,8 +205,21 @@ fun MapContent(
                         onCategoryChanged = { onAction(MapContract.Action.AddPlaceCategoryChanged(it)) },
                         onLatChanged = { onAction(MapContract.Action.AddPlaceLatChanged(it)) },
                         onLngChanged = { onAction(MapContract.Action.AddPlaceLngChanged(it)) },
+                        onRadiusChanged = { onAction(MapContract.Action.AddPlaceRadiusChanged(it)) },
                         onConfirm = { onAction(MapContract.Action.ConfirmAddPlace) },
                         onDismiss = { onAction(MapContract.Action.DismissAddPlaceDialog) },
+                    )
+                }
+
+                // Edit Place dialog — shown as overlay
+                state.editPlaceDialog?.let { dialog ->
+                    EditPlaceDialog(
+                        dialog = dialog,
+                        onNameChanged = { onAction(MapContract.Action.EditPlaceNameChanged(it)) },
+                        onCategoryChanged = { onAction(MapContract.Action.EditPlaceCategoryChanged(it)) },
+                        onRadiusChanged = { onAction(MapContract.Action.EditPlaceRadiusChanged(it)) },
+                        onConfirm = { onAction(MapContract.Action.ConfirmEditPlace) },
+                        onDismiss = { onAction(MapContract.Action.DismissEditPlaceDialog) },
                     )
                 }
             }
@@ -277,7 +298,7 @@ private fun MapDateBar(
     onPlayPause: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .background(BlackBoxColors.Surface)
@@ -290,10 +311,9 @@ private fun MapDateBar(
                 )
             }
             .padding(horizontal = Dimens.PaddingScreen, vertical = Dimens.SpacingXs),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        IconButton(onClick = onPrevious) {
+        // Left arrow — always a single IconButton
+        IconButton(onClick = onPrevious, modifier = Modifier.align(Alignment.CenterStart)) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                 contentDescription = "Previous day",
@@ -301,9 +321,11 @@ private fun MapDateBar(
             )
         }
 
+        // Date pill — always centred regardless of how many buttons are on either side
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
+                .align(Alignment.Center)
                 .background(BlackBoxColors.SurfaceVariant, RoundedCornerShape(Dimens.RadiusFull))
                 .clickable(onClick = onOpenPicker)
                 .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingXs),
@@ -322,8 +344,11 @@ private fun MapDateBar(
             )
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Play / Pause button — only visible when there are 2+ stays
+        // Right side — play/pause + next arrow
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.align(Alignment.CenterEnd),
+        ) {
             if (canPlay) {
                 IconButton(onClick = onPlayPause) {
                     Icon(
@@ -334,7 +359,6 @@ private fun MapDateBar(
                     )
                 }
             }
-
             IconButton(onClick = onNext) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -566,6 +590,7 @@ private fun AddPlaceDialog(
     onCategoryChanged: (PlaceCategory) -> Unit,
     onLatChanged: (String) -> Unit,
     onLngChanged: (String) -> Unit,
+    onRadiusChanged: (Float) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -645,6 +670,148 @@ private fun AddPlaceDialog(
                         isError = dialog.lngText.toDoubleOrNull() == null,
                     )
                 }
+
+                // Radius
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Radius",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = BlackBoxColors.TextSecondary,
+                    )
+                    Text(
+                        text = "${dialog.radiusMeters.toInt()} m",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = BlackBoxColors.IndigoLight,
+                    )
+                }
+                Slider(
+                    value = dialog.radiusMeters,
+                    onValueChange = onRadiusChanged,
+                    valueRange = 50f..500f,
+                    steps = 17, // 50, 75, 100 … 500 in 25m steps
+                    colors = SliderDefaults.colors(
+                        thumbColor = BlackBoxColors.Indigo,
+                        activeTrackColor = BlackBoxColors.Indigo,
+                        inactiveTrackColor = BlackBoxColors.Border,
+                    ),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = dialog.isValid,
+            ) {
+                Text(
+                    text = "Save",
+                    color = if (dialog.isValid) BlackBoxColors.Indigo else BlackBoxColors.TextTertiary,
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = BlackBoxColors.TextSecondary)
+            }
+        },
+    )
+}
+
+// ── Edit Place dialog ─────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun EditPlaceDialog(
+    dialog: MapContract.EditPlaceDialogState,
+    onNameChanged: (String) -> Unit,
+    onCategoryChanged: (PlaceCategory) -> Unit,
+    onRadiusChanged: (Float) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = BlackBoxColors.Surface,
+        title = {
+            Text(
+                text = "Edit Place",
+                style = MaterialTheme.typography.titleMedium,
+                color = BlackBoxColors.TextPrimary,
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(Dimens.SpacingMd),
+            ) {
+                // Name
+                OutlinedTextField(
+                    value = dialog.name,
+                    onValueChange = onNameChanged,
+                    label = { Text("Name", color = BlackBoxColors.TextSecondary) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                // Category chips
+                Text(
+                    text = "Category",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = BlackBoxColors.TextSecondary,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingXs),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.SpacingXs),
+                ) {
+                    ADD_PLACE_CATEGORIES.forEach { cat ->
+                        val selected = cat == dialog.category
+                        Text(
+                            text = cat.name.lowercase().replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (selected) BlackBoxColors.Indigo else BlackBoxColors.TextSecondary,
+                            modifier = Modifier
+                                .border(
+                                    width = 1.dp,
+                                    color = if (selected) BlackBoxColors.Indigo else BlackBoxColors.Border,
+                                    shape = RoundedCornerShape(Dimens.RadiusFull),
+                                )
+                                .clickable { onCategoryChanged(cat) }
+                                .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingXs),
+                        )
+                    }
+                }
+
+                // Radius
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Radius",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = BlackBoxColors.TextSecondary,
+                    )
+                    Text(
+                        text = "${dialog.radiusMeters.toInt()} m",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = BlackBoxColors.IndigoLight,
+                    )
+                }
+                Slider(
+                    value = dialog.radiusMeters,
+                    onValueChange = onRadiusChanged,
+                    valueRange = 50f..500f,
+                    steps = 17,
+                    colors = SliderDefaults.colors(
+                        thumbColor = BlackBoxColors.Indigo,
+                        activeTrackColor = BlackBoxColors.Indigo,
+                        inactiveTrackColor = BlackBoxColors.Border,
+                    ),
+                )
             }
         },
         confirmButton = {
@@ -676,6 +843,8 @@ private fun AddPlaceDialog(
 @Composable
 private fun PlacesList(
     places: List<KnownPlace>,
+    onDelete: (Long) -> Unit,
+    onEdit: (KnownPlace) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -692,7 +861,7 @@ private fun PlacesList(
             )
         }
         items(places, key = { it.id }) { place ->
-            PlaceRow(place = place)
+            PlaceRow(place = place, onDelete = { onDelete(place.id) }, onEdit = { onEdit(place) })
         }
         item { Spacer(Modifier.height(Dimens.SpacingXl)) }
     }
@@ -701,6 +870,8 @@ private fun PlacesList(
 @Composable
 private fun PlaceRow(
     place: KnownPlace,
+    onDelete: () -> Unit,
+    onEdit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -752,6 +923,23 @@ private fun PlaceRow(
                 text = if (place.isAutoDetected) "auto" else "manual",
                 style = MaterialTheme.typography.labelSmall,
                 color = if (place.isAutoDetected) BlackBoxColors.Teal else BlackBoxColors.IndigoLight,
+            )
+        }
+
+        IconButton(onClick = onEdit) {
+            Icon(
+                imageVector = Icons.Default.Edit,
+                contentDescription = "Edit place",
+                tint = BlackBoxColors.IndigoLight,
+                modifier = Modifier.size(Dimens.IconMd),
+            )
+        }
+        IconButton(onClick = onDelete) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "Remove place",
+                tint = BlackBoxColors.TextTertiary,
+                modifier = Modifier.size(Dimens.IconMd),
             )
         }
     }

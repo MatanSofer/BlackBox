@@ -14,8 +14,10 @@ import kotlinx.coroutines.withContext
 /**
  * SQLDelight-backed implementation of [InsightRepository].
  *
- * Provides aggregated trend data derived from daily summaries.
- * Used by the Insights screen for charts and pattern analysis.
+ * Provides aggregated trend data derived from [DailySummary] rows.
+ * [getStepTrend] and [getScreenTimeTrend] are deprecated — Insights now derives
+ * those trends directly from raw records. [getSummariesForAnalysis] is still active
+ * for proof-report and analytics paths.
  * All database operations run on [Dispatchers.IO].
  */
 class InsightRepositoryImpl(
@@ -23,6 +25,7 @@ class InsightRepositoryImpl(
     private val logger: BlackBoxLogger,
 ) : InsightRepository {
 
+    @Suppress("OVERRIDE_DEPRECATION")
     override suspend fun getStepTrend(startDate: String, endDate: String): List<DailyStepCount> {
         return withContext(Dispatchers.IO) {
             logger.d(TAG, "Fetching step trend: $startDate..$endDate")
@@ -38,6 +41,7 @@ class InsightRepositoryImpl(
         }
     }
 
+    @Suppress("OVERRIDE_DEPRECATION")
     override suspend fun getScreenTimeTrend(startDate: String, endDate: String): List<DailyScreenTime> {
         return withContext(Dispatchers.IO) {
             logger.d(TAG, "Fetching screen time trend: $startDate..$endDate")

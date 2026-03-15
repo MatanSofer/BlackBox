@@ -26,8 +26,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -237,10 +237,20 @@ fun SearchContent(
                             Spacer(modifier = Modifier.height(Dimens.SpacingXs))
                         }
                     } else {
-                        EmptyStateView(
-                            title = "Ask BlackBox",
-                            message = "Try \"Where was I yesterday?\" or \"How many steps last week?\"",
+                        Spacer(modifier = Modifier.height(Dimens.SpacingSm))
+                        Text(
+                            text = "Try asking",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = BlackBoxColors.TextTertiary,
+                            modifier = Modifier.padding(bottom = Dimens.SpacingSm),
                         )
+                        PRESET_QUERIES.forEach { preset ->
+                            RecentQueryRow(
+                                query = preset,
+                                onClick = { onAction(SearchContract.Action.RecentQueryClicked(preset)) },
+                            )
+                            Spacer(modifier = Modifier.height(Dimens.SpacingXs))
+                        }
                     }
                 }
             }
@@ -376,15 +386,20 @@ private fun RecentQueryRow(
         modifier = modifier
             .fillMaxWidth()
             .obsidianCard(cornerRadius = Dimens.RadiusSm)
+            .accentBorder(
+                color = BlackBoxColors.Indigo,
+                cornerRadius = Dimens.RadiusSm,
+                alpha = 0.3f,
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingSm),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingSm),
     ) {
         Icon(
-            imageVector = Icons.Default.Star,
+            imageVector = Icons.Default.History,
             contentDescription = null,
-            tint = BlackBoxColors.TextTertiary,
+            tint = BlackBoxColors.Indigo.copy(alpha = 0.6f),
             modifier = Modifier.size(16.dp),
         )
         Text(
@@ -412,6 +427,15 @@ private fun SuggestionChip(
             .padding(horizontal = Dimens.SpacingMd, vertical = Dimens.SpacingXs),
     )
 }
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+private val PRESET_QUERIES = listOf(
+    "Where was I yesterday?",
+    "How many steps today?",
+    "What did I do last night?",
+    "Where do I spend most time?",
+)
 
 // ── Previews ──────────────────────────────────────────────────────────────────
 

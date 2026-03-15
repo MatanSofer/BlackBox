@@ -86,6 +86,7 @@ class CallLogCollector(
             CallLog.Calls.DURATION,
             CallLog.Calls.DATE,
             CallLog.Calls.NUMBER,
+            CallLog.Calls.CACHED_NAME,  // cached contact display name, no READ_CONTACTS needed
         )
         val selection = "${CallLog.Calls.DATE} > ?"
         val selectionArgs = arrayOf(since.toString())
@@ -106,18 +107,21 @@ class CallLogCollector(
             val durationIdx = c.getColumnIndexOrThrow(CallLog.Calls.DURATION)
             val dateIdx = c.getColumnIndexOrThrow(CallLog.Calls.DATE)
             val numberIdx = c.getColumnIndexOrThrow(CallLog.Calls.NUMBER)
+            val nameIdx = c.getColumnIndex(CallLog.Calls.CACHED_NAME) // -1 if column absent
 
             while (c.moveToNext()) {
                 val callType = mapCallType(c.getInt(typeIdx))
                 val durationSec = c.getInt(durationIdx)
                 val callDate = c.getLong(dateIdx)
                 val rawNumber = c.getString(numberIdx) ?: ""
+                val contactName = if (nameIdx >= 0) c.getString(nameIdx)?.takeIf { it.isNotBlank() } else null
 
                 val data = CallLogData(
                     callType = callType,
                     durationSeconds = durationSec,
                     numberHash = hashNumber(rawNumber),
                     callTimestamp = callDate,
+                    contactName = contactName,
                 )
 
                 results.add(
@@ -166,11 +170,11 @@ class CallLogCollector(
         private const val POLL_INTERVAL_MS = 5L * 60 * 1_000
 
         /**
-         * Maximum window used on first-ever start or if the persisted timestamp
-         * is older than this. 24 h is enough to catch any calls missed during
-         * a service restart without replaying weeks of history.
+         * Maximum lookback window. 30 days ensures historical calls already in
+         * the system call log are imported on first start, while still bounding
+         * the initial query to a reasonable range.
          */
-        private const val MAX_LOOKBACK_MS = 24L * 60 * 60 * 1_000
+        private const val MAX_LOOKBACK_MS = 30L * 24 * 60 * 60 * 1_000
 
         private const val PREFS_NAME = "blackbox_calllog_collector"
         private const val KEY_LAST_QUERY_TIME = "last_query_time"

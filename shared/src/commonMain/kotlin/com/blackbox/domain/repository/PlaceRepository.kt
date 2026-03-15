@@ -15,6 +15,14 @@ interface PlaceRepository {
     /** Finds the nearest known place to the given coordinates. */
     suspend fun findNearestPlace(latitude: Double, longitude: Double): KnownPlace?
 
+    /**
+     * Finds a known place whose WiFi fingerprint contains [bssid].
+     *
+     * Used as an indoor positioning fallback when GPS accuracy is insufficient
+     * to distinguish between nearby places.
+     */
+    suspend fun findPlaceByWifiBssid(bssid: String): KnownPlace?
+
     /** Retrieves places by category. */
     suspend fun getPlacesByCategory(category: PlaceCategory): List<KnownPlace>
 

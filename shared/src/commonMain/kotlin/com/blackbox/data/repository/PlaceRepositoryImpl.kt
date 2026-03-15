@@ -38,11 +38,30 @@ class PlaceRepositoryImpl(
 
     override suspend fun findNearestPlace(latitude: Double, longitude: Double): KnownPlace? {
         return withContext(Dispatchers.IO) {
-            database.blackBoxDatabaseQueries
+            val nearest = database.blackBoxDatabaseQueries
                 .findNearestPlace(latitude, latitude, longitude, longitude)
                 .executeAsOneOrNull()
-                ?.let(PlaceMapper::toDomain)
+                ?.let(PlaceMapper::toDomain) ?: return@withContext null
+
+            val distanceMeters = haversineDistance(latitude, longitude, nearest.latitude, nearest.longitude)
+            if (distanceMeters <= nearest.radiusMeters) nearest else null
         }
+    }
+
+    override suspend fun findPlaceByWifiBssid(bssid: String): KnownPlace? {
+        return withContext(Dispatchers.IO) {
+            getAllPlaces().firstOrNull { place -> place.wifiFingerprint.contains(bssid) }
+        }
+    }
+
+    private fun haversineDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
+        val r = 6_371_000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLng = Math.toRadians(lng2 - lng1)
+        val a = kotlin.math.sin(dLat / 2) * kotlin.math.sin(dLat / 2) +
+            kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
+            kotlin.math.sin(dLng / 2) * kotlin.math.sin(dLng / 2)
+        return r * 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
     }
 
     override suspend fun getPlacesByCategory(category: PlaceCategory): List<KnownPlace> {

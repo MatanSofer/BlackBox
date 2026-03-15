@@ -21,6 +21,7 @@ enum class CollectorType {
     CONNECTIVITY,
     BAROMETER,
     LIGHT,
+    CALL_LOG,
 }
 
 // shared/platform/Collectors.kt
@@ -634,6 +635,36 @@ Samples atmospheric pressure every 10 minutes. Uses a 1-second reading to avoid 
 **Default:** DISABLED
 
 Samples ambient light every 10 minutes. Single 1-second reading. Classifies into DARK/DIM/INDOOR/OUTDOOR_SHADE/DIRECT_SUNLIGHT.
+
+---
+
+### 2.11 Call Log Collector
+
+**Priority:** HIGH
+**Android APIs:** `ContentResolver` → `CallLog.Calls.CONTENT_URI`
+**Permissions:** `READ_CALL_LOG`
+**Default:** ENABLED
+**Poll interval:** 2 minutes
+
+Polls the system call log every 2 minutes and saves any new calls since the last seen timestamp.
+
+**First-run behaviour:** On the very first poll, looks back **30 days** to import existing call history so the timeline is populated retroactively.
+
+**Data captured per call:**
+- Phone number (hashed for privacy in production logs)
+- Contact display name (`CallLog.Calls.CACHED_NAME` — the name cached by the system dialer at call time; available with `READ_CALL_LOG` only, no `READ_CONTACTS` required; `null` if the number was unsaved)
+- Call type: `INCOMING`, `OUTGOING`, `MISSED`, `REJECTED`, `VOICEMAIL`, `UNKNOWN`
+- Duration in seconds (0 for missed/rejected)
+- Exact timestamp
+
+**Timeline display:**
+- `INCOMING` → "Incoming call · 3m 20s"
+- `OUTGOING` → "Outgoing call · 1m 05s"
+- `MISSED` → "Missed call"
+- `REJECTED` → "Rejected call"
+- `VOICEMAIL` → "Voicemail"
+
+**Key implementation detail:** Uses a `lastSeenTimestamp` stored in `SettingsRepository` to avoid re-saving duplicate call records across poll cycles.
 
 ---
 
