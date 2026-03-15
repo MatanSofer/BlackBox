@@ -45,68 +45,83 @@ class GetInsightsBriefUseCase(
 ) {
 
     /**
-     * Fetches and aggregates insights for the last 7 days ending today.
+     * Fetches and aggregates insights for the last 7 days (trend charts) and an
+     * optionally wider window (ranking cards).
      *
+     * The 7-bar step / screen / sleep trend charts always cover exactly 7 days.
+     * The ranking cards (top places, top apps, top contacts) cover [rankingDays]
+     * calendar days ending today (default 7, can be 30 for a monthly view).
+     *
+     * @param rankingDays How many days the ranking cards look back (inclusive of today).
      * @return [Result] containing an [InsightsBrief] on success, or an error.
      */
-    suspend operator fun invoke(): Result<InsightsBrief> = runCatching {
+    suspend operator fun invoke(rankingDays: Int = 7): Result<InsightsBrief> = runCatching {
         val tz = TimeZone.currentSystemDefault()
         val now = Clock.System.now()
         val today = now.toLocalDateTime(tz).date
-        val weekStart = today.minus(6, DateTimeUnit.DAY)
+        val weekStart   = today.minus(6, DateTimeUnit.DAY)              // always 7-day for trend charts
+        val rankingStart = today.minus(rankingDays - 1, DateTimeUnit.DAY) // configurable for ranking cards
 
-        val nowMs = now.toEpochMilliseconds()
-        val todayStartMs = today.atStartOfDayIn(tz).toEpochMilliseconds()
-        val weekStartMs = weekStart.atStartOfDayIn(tz).toEpochMilliseconds()
+        val nowMs          = now.toEpochMilliseconds()
+        val todayStartMs   = today.atStartOfDayIn(tz).toEpochMilliseconds()
+        val weekStartMs    = weekStart.atStartOfDayIn(tz).toEpochMilliseconds()
+        val rankingStartMs = rankingStart.atStartOfDayIn(tz).toEpochMilliseconds()
 
         val todayStr = today.toString()
-        val weekStartStr = weekStart.toString()
 
-        // Ordered oldest-first list of the 7 days in the window.
+        // Ordered oldest-first list of the 7 days for the trend charts.
         val weekDays = (6 downTo 0).map { today.minus(it, DateTimeUnit.DAY) }
 
-        logger.d(TAG, "Fetching brief: $weekStartStr → $todayStr")
+        logger.d(TAG, "Fetching brief: trends ${weekStart} → $todayStr, rankings ${rankingStart} → $todayStr")
 
-        // ── Raw records for the full 7-day window ──────────────────────────────
+        // ── Records for trend charts — always exactly 7 days ───────────────────
         val weekActivityRecords = recordRepository.getRecordsByTypeInRange(
             CollectorType.ACTIVITY, weekStartMs, nowMs,
         )
         val weekScreenRecords = recordRepository.getRecordsByTypeInRange(
             CollectorType.SCREEN_STATE, weekStartMs, nowMs,
         )
-        val weekAppRecords = recordRepository.getRecordsByTypeInRange(
-            CollectorType.APP_USAGE, weekStartMs, nowMs,
+
+        // ── Records for ranking cards — [rankingDays] window ───────────────────
+        // When rankingDays == 7 reuse the week records to avoid a duplicate query.
+        val rankingAppRecords = recordRepository.getRecordsByTypeInRange(
+            CollectorType.APP_USAGE, rankingStartMs, nowMs,
         )
-        val weekCallRecords = recordRepository.getRecordsByTypeInRange(
-            CollectorType.CALL_LOG, weekStartMs, nowMs,
+        val rankingScreenRecords = if (rankingDays == 7) {
+            weekScreenRecords
+        } else {
+            recordRepository.getRecordsByTypeInRange(
+                CollectorType.SCREEN_STATE, rankingStartMs, nowMs,
+            )
+        }
+        val rankingCallRecords = recordRepository.getRecordsByTypeInRange(
+            CollectorType.CALL_LOG, rankingStartMs, nowMs,
         )
 
         // ── Trend data — always exactly 7 entries ──────────────────────────────
         val stepTrend   = computeWeekStepTrend(weekDays, weekActivityRecords, tz)
         val screenTrend = computeWeekScreenTrend(weekDays, weekScreenRecords, tz, nowMs)
 
-        // ── Today's records (sliced from the week batch) ───────────────────────
+        // ── Today's records (sliced from already-fetched batches) ──────────────
         val todayActivityRecords = weekActivityRecords.filter { it.timestamp >= todayStartMs }
         val todayScreenRecords   = weekScreenRecords.filter { it.timestamp >= todayStartMs }
-        val todayAppRecords      = weekAppRecords.filter { it.timestamp >= todayStartMs }
+        val todayAppRecords      = rankingAppRecords.filter { it.timestamp >= todayStartMs }
 
         // ── Today's live stats ─────────────────────────────────────────────────
         val todaySteps = stepCounterProvider.getTodaySteps()
             ?: computeTodaySteps(todayActivityRecords)
         val todayScreenMinutes = computeScreenMinutes(todayScreenRecords, nowMs)
 
-        // ── Call log aggregates ────────────────────────────────────────────────
-        val weekTopContacts = aggregateTopContacts(weekCallRecords, limit = 5)
-
-        // ── App usage aggregates ───────────────────────────────────────────────
-        val weekTopApps  = aggregateTopApps(weekAppRecords, weekScreenRecords, nowMs, nowMs, limit = 5)
+        // ── Ranking aggregates — use the [rankingDays] window ──────────────────
+        val weekTopContacts = aggregateTopContacts(rankingCallRecords, limit = 5)
+        val weekTopApps  = aggregateTopApps(rankingAppRecords, rankingScreenRecords, nowMs, nowMs, limit = 5)
         val todayTopApp  = aggregateTopApps(todayAppRecords, todayScreenRecords, nowMs, nowMs, limit = 1).firstOrNull()
         val todayTopApps = aggregateTopApps(todayAppRecords, todayScreenRecords, nowMs, nowMs, limit = 5)
 
-        // ── Location data ──────────────────────────────────────────────────────
-        val weekLocations = locationRepository.getLocationsInRange(weekStartMs, nowMs)
-        val weekTopPlaces = aggregateTopPlaces(weekLocations, limit = 5)
-        val todayPlacesCount = weekLocations
+        // ── Location data (ranking window) ─────────────────────────────────────
+        val rankingLocations = locationRepository.getLocationsInRange(rankingStartMs, nowMs)
+        val weekTopPlaces = aggregateTopPlaces(rankingLocations, limit = 5)
+        val todayPlacesCount = rankingLocations
             .filter { it.timestamp >= todayStartMs }
             .mapNotNull { it.address }
             .distinct()

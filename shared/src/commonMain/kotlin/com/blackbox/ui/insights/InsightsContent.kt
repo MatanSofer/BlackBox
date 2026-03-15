@@ -11,6 +11,8 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -90,7 +92,7 @@ fun InsightsContent(
             onRetry = { onAction(InsightsContract.Action.Refresh) },
             modifier = modifier,
         )
-        else -> InsightsFeed(state = state, modifier = modifier)
+        else -> InsightsFeed(state = state, onAction = onAction, modifier = modifier)
     }
 }
 
@@ -116,6 +118,7 @@ private fun LoadingInsights(modifier: Modifier = Modifier) {
 @Composable
 private fun InsightsFeed(
     state: InsightsContract.State,
+    onAction: (InsightsContract.Action) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val brief = state.brief ?: return
@@ -158,6 +161,55 @@ private fun InsightsFeed(
         item { StepTrendCard(trend = brief.weekStepTrend, avg = brief.avgDailySteps) }
         item { ScreenTrendCard(trend = brief.weekScreenTrend, avg = brief.avgDailyScreenMinutes) }
         item { SleepTrendCard(trend = brief.weekSleepTrend, lastNight = brief.lastNightSleep, avg = brief.avgSleepMinutes) }
+
+        // Rankings section header with period selector
+        if (brief.weekTopPlaces.isNotEmpty() || brief.weekTopApps.isNotEmpty() || brief.weekTopContacts.isNotEmpty()) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Rankings",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = BlackBoxColors.TextSecondary,
+                        letterSpacing = 1.5.sp,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpacingXs)) {
+                        InsightsContract.RankingPeriod.entries.forEach { period ->
+                            val isSelected = state.rankingPeriod == period
+                            Box(
+                                modifier = Modifier
+                                    .border(
+                                        width = if (isSelected) 1.dp else 0.5.dp,
+                                        color = if (isSelected) BlackBoxColors.Indigo else BlackBoxColors.TextTertiary,
+                                        shape = RoundedCornerShape(4.dp),
+                                    )
+                                    .background(
+                                        color = if (isSelected) BlackBoxColors.IndigoDim else Color.Transparent,
+                                        shape = RoundedCornerShape(4.dp),
+                                    )
+                                    .clickable(
+                                        enabled = !isSelected,
+                                        indication = null,
+                                        interactionSource = null,
+                                    ) {
+                                        onAction(InsightsContract.Action.RankingPeriodChanged(period))
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                            ) {
+                                Text(
+                                    text = period.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isSelected) BlackBoxColors.IndigoLight else BlackBoxColors.TextTertiary,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // Top places + apps
         if (brief.weekTopPlaces.isNotEmpty() || brief.weekTopApps.isNotEmpty()) {

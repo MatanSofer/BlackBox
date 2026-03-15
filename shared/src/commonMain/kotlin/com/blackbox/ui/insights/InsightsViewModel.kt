@@ -61,6 +61,10 @@ class InsightsViewModel(
             is InsightsContract.Action.RetryObservations ->
                 _state.value.brief?.let { loadObservations(it) }
             is InsightsContract.Action.ScreenResumed -> onScreenResumed()
+            is InsightsContract.Action.RankingPeriodChanged -> {
+                _state.update { it.copy(rankingPeriod = action.period) }
+                loadData(rankingDays = action.period.days)
+            }
         }
     }
 
@@ -75,10 +79,10 @@ class InsightsViewModel(
         }
     }
 
-    private fun loadData() {
+    private fun loadData(rankingDays: Int = _state.value.rankingPeriod.days) {
         viewModelScope.launch {
             _state.update { it.copy(isLoadingData = true, error = null, observations = emptyList()) }
-            getInsightsBriefUseCase()
+            getInsightsBriefUseCase(rankingDays)
                 .onSuccess { brief ->
                     lastLoadedAtMs = Clock.System.now().toEpochMilliseconds()
                     _state.update { it.copy(isLoadingData = false, brief = brief) }
