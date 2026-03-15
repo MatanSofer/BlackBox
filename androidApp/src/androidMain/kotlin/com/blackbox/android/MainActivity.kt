@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
@@ -57,7 +58,10 @@ class MainActivity : FragmentActivity() {
         var isAuthenticated: Boolean? by mutableStateOf(null)
         installSplashScreen().setKeepOnScreenCondition { isOnboardingComplete == null }
 
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
 
         lifecycleScope.launch {
