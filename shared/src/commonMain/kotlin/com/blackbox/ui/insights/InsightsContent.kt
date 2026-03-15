@@ -51,9 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.blackbox.domain.model.sleep.SleepQuality
 import com.blackbox.domain.model.sleep.SleepSession
-import com.blackbox.domain.repository.DailyScreenTime
-import com.blackbox.domain.repository.DailyStepCount
 import com.blackbox.domain.usecase.insight.AppUsageStat
+import com.blackbox.domain.usecase.insight.DailyScreenTime
+import com.blackbox.domain.usecase.insight.DailyStepCount
 import com.blackbox.domain.usecase.insight.ContactCallStat
 import com.blackbox.domain.usecase.insight.InsightsBrief
 import com.blackbox.domain.usecase.insight.PlaceVisit

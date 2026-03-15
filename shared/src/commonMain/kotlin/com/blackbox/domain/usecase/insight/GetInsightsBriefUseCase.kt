@@ -6,7 +6,6 @@ import com.blackbox.domain.model.record.RecordData
 import com.blackbox.domain.model.record.ScreenState
 import com.blackbox.domain.model.sleep.SleepSession
 import com.blackbox.domain.usecase.sleep.DetectSleepSessionsUseCase
-import com.blackbox.domain.repository.DailyStepCount
 import com.blackbox.domain.platform.StepCounterProvider
 import com.blackbox.domain.repository.LocationEntry
 import com.blackbox.domain.repository.LocationRepository
@@ -201,7 +200,7 @@ class GetInsightsBriefUseCase(
         records: List<CollectedRecord>,
         tz: TimeZone,
         nowMs: Long,
-    ): List<com.blackbox.domain.repository.DailyScreenTime> {
+    ): List<DailyScreenTime> {
         val byDay = records.groupBy {
             Instant.fromEpochMilliseconds(it.timestamp).toLocalDateTime(tz).date.toString()
         }
@@ -213,7 +212,7 @@ class GetInsightsBriefUseCase(
             val pickups     = dayRecords.count {
                 (it.data as? RecordData.ScreenState)?.screenStateData?.state == ScreenState.ON
             }
-            com.blackbox.domain.repository.DailyScreenTime(
+            DailyScreenTime(
                 date = day.toString(), totalMinutes = minutes, pickupCount = pickups,
             )
         }
@@ -638,7 +637,7 @@ data class InsightsBrief(
     val todayTopApps: List<AppUsageStat> = emptyList(),
     val todayStepsVsAvg: Float = 1f,
     val weekStepTrend: List<DailyStepCount> = emptyList(),
-    val weekScreenTrend: List<com.blackbox.domain.repository.DailyScreenTime> = emptyList(),
+    val weekScreenTrend: List<DailyScreenTime> = emptyList(),
     val weekTopPlaces: List<PlaceVisit> = emptyList(),
     val weekTopApps: List<AppUsageStat> = emptyList(),
     val weekTopContacts: List<ContactCallStat> = emptyList(),
@@ -691,4 +690,28 @@ data class ContactCallStat(
     val totalCalls: Int,
     val totalDurationSeconds: Int,
     val missedCount: Int,
+)
+
+/**
+ * Step count for a single day, used in the weekly step trend chart.
+ *
+ * @property date ISO date string (yyyy-MM-dd).
+ * @property steps Total step count derived from the hardware pedometer (max − min cumulative).
+ */
+data class DailyStepCount(
+    val date: String,
+    val steps: Int,
+)
+
+/**
+ * Screen time data for a single day, used in the weekly screen time trend chart.
+ *
+ * @property date ISO date string (yyyy-MM-dd).
+ * @property totalMinutes Total screen-on minutes (sum of ON→OFF intervals).
+ * @property pickupCount Number of screen-on events (phone pickups) that day.
+ */
+data class DailyScreenTime(
+    val date: String,
+    val totalMinutes: Int,
+    val pickupCount: Int,
 )

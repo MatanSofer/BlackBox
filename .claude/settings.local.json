@@ -7,7 +7,8 @@
       "Bash(xargs ls:*)",
       "Bash(git checkout:*)",
       "Bash(git commit:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git -C \"C:/Users/sofer/AndroidStudioProjects/Kmpstealthapp\" status && git -C \"C:/Users/sofer/AndroidStudioProjects/Kmpstealthapp\" branch)"
     ]
   }
 }
