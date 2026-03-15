@@ -1,128 +1,157 @@
-# BlackBox — Your Life Has a Black Box. Now You Can Read It.
+# BlackBox — Personal Life Flight Recorder
 
-BlackBox is a **privacy-first, offline-first personal life flight recorder** for Android, built with Kotlin Multiplatform. It passively captures metadata from your device — where you go, what you do, which apps you use, how you sleep — and lets you query it in plain language.
+> *Your life has a black box. Now you can read it.*
 
-**Everything stays on-device. No cloud. No accounts. No ads.**
+BlackBox is a **privacy-first, offline-first personal recorder** for Android. It runs silently in the background, capturing contextual metadata from your device — where you were, what you were doing, how long you slept, which apps you used — and lets you query it all in plain English.
+
+Everything stays on your phone. No accounts. No cloud. No ads.
 
 ---
 
-## What It Does
+## What it does
 
 | Feature | Description |
 |---------|-------------|
-| **Passive Capture** | Runs silently in the background, recording location, activity, WiFi, screen time, calls, and more |
-| **Natural Language Search** | Ask "Where was I yesterday afternoon?" or "How many steps last week?" |
-| **Timeline** | Browse your day as a chronological story — location stays, activities, calls |
-| **Insights** | Step trends, sleep patterns, screen time breakdowns, top apps |
-| **Map** | Visualise your day's route on an offline OpenStreetMap |
-| **Known Places** | Name your locations (Home, Office, Gym) and see them appear everywhere |
-| **Encrypted Storage** | All data encrypted at rest with AES-256 (Android Keystore + SQLCipher) |
-| **Bilingual** | Full English and Hebrew support |
+| **Passive collection** | Captures location, activity, screen time, app usage, calls, WiFi, sensors — continuously, in the background |
+| **Natural language search** | Ask "Where was I last Tuesday?" or "How many steps did I walk this week?" and get an instant answer |
+| **Timeline** | Scroll through your day as a chronological feed of events — stays, calls, activity transitions |
+| **Interactive map** | Replay your route on an offline OpenStreetMap. Manage named places with a radius geofence |
+| **Insights dashboard** | 7-day trend charts for steps, screen time, and sleep. Top places, apps, and contacts for the last 7 or 30 days |
+| **Sleep detection** | Automatically detects when you fell asleep and woke up using screen-on patterns, airplane mode signals, and ambient light |
+| **AI observations** | Optional on-device or API-powered insights about your patterns |
 
 ---
 
-## Quick Start
+## Screenshots
+
+*Coming soon*
+
+---
+
+## Tech stack
+
+| Layer | Technology |
+|-------|-----------|
+| Language | Kotlin 2.0+ |
+| Multiplatform | Kotlin Multiplatform (KMP) |
+| UI | Jetpack Compose + Compose Multiplatform |
+| Architecture | Clean Architecture + MVI |
+| Database | SQLDelight + SQLCipher (encrypted) |
+| DI | Koin Multiplatform |
+| Async | Coroutines + StateFlow / SharedFlow |
+| Location | Google FusedLocationProvider |
+| Activity | Google Activity Recognition API |
+| Maps | OSMDroid (OpenStreetMap, fully offline) |
+| Background | Foreground Service + WorkManager |
+| Security | Android Keystore AES-256 + Biometric lock |
+
+---
+
+## Privacy
+
+- **No network calls** — all data stays on-device (except optional AI queries you explicitly enable)
+- **Encrypted database** — AES-256 via SQLCipher + Android Keystore
+- **Biometric lock** — app locks after 1 minute in background
+- **Phone numbers hashed** — stored as truncated SHA-256, never in plain text
+- **Audio: level only** — the microphone measures ambient dB; raw audio is never written to disk
+- **Tamper-detection chain** — each daily summary includes a SHA-256 hash chained to the previous day
+
+---
+
+## Architecture overview
+
+```
+UI (Compose Multiplatform)
+    │
+    ▼
+ViewModel  ·  MVI — State / Action / Event
+    │
+    ▼
+Use Cases  ·  pure Kotlin, shared module
+    │
+    ▼
+Repository interfaces  ·  shared module
+    │
+    ▼
+Repository implementations  ·  SQLDelight + platform APIs
+    │
+    ▼
+Platform collectors  ·  Android foreground service
+```
+
+The `shared/` module contains ~70% of the codebase: all domain models, use cases, repository interfaces, the NLP query engine, and the Compose UI. `androidApp/` is a thin shell providing Android platform implementations (collectors, Keystore, sensors).
+
+---
+
+## Building
 
 ```bash
-# Build
+# Clone
+git clone https://github.com/MatanSofer/BlackBox.git
+cd BlackBox
+
+# Build debug APK
 ./gradlew :androidApp:assembleDebug
 
-# Install on device
+# Install on connected device
 ./gradlew :androidApp:installDebug
 
-# Run tests
+# Run shared module tests
 ./gradlew :shared:testDebugUnitTest
-
-# Lint
-./gradlew :shared:detekt && ./gradlew :androidApp:detekt
 ```
 
-**Requirements**: Android 8.0+ (API 26), 50 MB storage.
+**Requirements:** Android Studio Hedgehog+, JDK 17+, Android SDK 26 (minSdk) → 35 (targetSdk)
 
 ---
 
-## Architecture in One Picture
+## Collectors
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  Android Device                                         │
-│  ┌──────────────┐    ┌────────────────────────────────┐ │
-│  │ Sensors &    │───▶│ BlackBoxService (Foreground)   │ │
-│  │ System APIs  │    │  CollectorOrchestrator         │ │
-│  │  GPS / WiFi  │    │   LocationCollector            │ │
-│  │  CallLog     │    │   ActivityCollector            │ │
-│  │  Screen      │    │   ScreenStateCollector ...     │ │
-│  └──────────────┘    └──────────────┬─────────────────┘ │
-│                                     │ CollectedRecord    │
-│                          ┌──────────▼───────────┐       │
-│                          │ SQLDelight Database   │       │
-│                          │ (SQLCipher AES-256)   │       │
-│                          └──────────┬───────────┘       │
-│                                     │                   │
-│    ┌────────────────────────────────▼──────────────┐    │
-│    │ Use Cases (business logic)                    │    │
-│    │  GetTimelineUseCase                           │    │
-│    │  DetectSleepSessionsUseCase                   │    │
-│    │  ProcessQueryUseCase (NLP engine)             │    │
-│    └────────────────────────────────┬──────────────┘    │
-│                                     │                   │
-│    ┌────────────────────────────────▼──────────────┐    │
-│    │ Compose UI  (MVI — State / Action / Event)    │    │
-│    │  Search  Timeline  Map  Insights  Settings    │    │
-│    └───────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────┘
-```
+BlackBox runs 11 passive data collectors:
+
+| Collector | What it captures | Battery cost |
+|-----------|-----------------|-------------|
+| Location | GPS coordinates every ~5 min | Low |
+| Activity | Walking / running / driving transitions | Near zero |
+| Screen State | Screen on/off/unlock events | Zero |
+| App Usage | Foreground app and session duration | Near zero |
+| Call Log | Incoming / outgoing / missed calls + contact name | Near zero |
+| WiFi | Connected network + nearby SSIDs | Low |
+| Connectivity | Network type, airplane mode, Bluetooth | Near zero |
+| Battery | Level, charging state, temperature | Zero |
+| Barometer | Atmospheric pressure (floor detection) | Low |
+| Light Sensor | Ambient light level (sleep validation) | Low |
+| Audio Level | Ambient dB level — never audio content | Medium |
+
+All collectors can be individually toggled in Settings. Battery profiles automatically reduce collection frequency at low charge.
 
 ---
 
-## Project Structure
+## Query engine
+
+The built-in NLP query engine supports English and Hebrew:
 
 ```
-Kmpstealthapp/
-├── shared/                    # KMP shared module (~70% of code)
-│   └── src/commonMain/kotlin/com/blackbox/
-│       ├── domain/            # Pure Kotlin — models, use cases, repository interfaces
-│       ├── data/              # SQLDelight implementations + mappers
-│       └── ui/                # Compose Multiplatform screens and ViewModels
-│
-└── androidApp/                # Android application shell
-    └── src/androidMain/kotlin/com/blackbox/android/
-        ├── collector/         # Sensor collectors
-        ├── service/           # Foreground service + BootReceiver
-        ├── worker/            # WorkManager jobs
-        ├── security/          # Keystore + Biometrics
-        └── di/                # Koin modules
+"Where was I yesterday afternoon?"
+  → "Yesterday afternoon (12:00–18:00) you were at the Office."
+
+"How many steps did I walk last week?"
+  → "You walked an average of 7,840 steps/day last week."
+
+"When did I get home on Monday?"
+  → "You arrived home at 18:32 on Monday."
 ```
+
+Pipeline: normalise → detect language → parse time expression → classify intent → extract entities → build DB query → generate response. Entirely offline, no LLM required.
 
 ---
 
-## Documentation Map
+## Status
 
-### Start Here (Reading Order)
+Active development. Core collection, search, timeline, map, and insights are functional.
+iOS support is planned for a future phase.
 
-| # | Document | What you learn |
-|---|----------|---------------|
-| 1 | `README.md` | This file — project overview and quick start |
-| 2 | `DEVELOPER_TUTORIAL.md` | Full developer onboarding — setup, patterns, how to add features |
-| 3 | `FEATURES_GUIDE.md` | Every user-facing feature, what data it uses, how it works |
-| 4 | `ARCHITECTURE_DEEP_DIVE.md` | Every architectural decision and why |
-| 5 | `DATA_FLOW.md` | Sensor → DB → UI data path with sequence diagrams |
-| 6 | `ALGORITHMS.md` | All 12 algorithms explained (sleep, places, NLP, etc.) |
-| 7 | `TESTING_GUIDE.md` | How to write and run tests |
+---
 
-### Reference (Look Up When Working on a Specific Area)
+## License
 
-| Area | Document |
-|------|----------|
-| Full product spec | `BLACKBOX_SPEC.md` |
-| Coding standards & conventions | `DEV_SPECS.md` |
-| Collector details + intervals | `COLLECTORS.md` |
-| Database schema | `DATABASE.md` |
-| NLP query engine | `QUERY_ENGINE.md` |
-| Security model | `SECURITY.md` |
-| Battery optimization | `BATTERY.md` |
-| UI screen specs | `UI_SCREENS.md` ⚠️ theme section is outdated — see note below |
-| Timeline behavior & debugging | `TIMELINE_BEHAVIOR.md` |
-| AI agent coding rules | `CLAUDE.md` |
-
-> **UI_SCREENS.md theme note:** The spec describes a dark blue + amber theme. The actual implemented theme is a cyberpunk aesthetic: near-black background (`#050510`), neon green (`#00FF41`), electric cyan (`#00D4FF`), magenta accent (`#FF0064`), and monospace typography throughout. See `shared/src/commonMain/kotlin/com/blackbox/ui/theme/` for the live implementation.
+MIT

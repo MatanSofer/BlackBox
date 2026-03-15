@@ -17,3 +17,26 @@ captures
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
 node_modules/
+
+# Internal dev docs — kept locally, not pushed to remote
+ALGORITHMS.md
+ARCHITECTURE_DEEP_DIVE.md
+BATTERY.md
+BLACKBOX_SPEC.md
+CLAUDE.md
+COLLECTORS.md
+DATABASE.md
+DATA_FLOW.md
+DEVELOPER_TUTORIAL.md
+DEV_SPECS.md
+FEATURES_GUIDE.md
+QUERY_ENGINE.md
+SECURITY.md
+TESTING_GUIDE.md
+TIMELINE_BEHAVIOR.md
+UI_SCREENS.md
+AGENT_PROMPT.md
+TIMELINE_BEHAVIOR.md
+
+# Claude AI settings
+.claude/
