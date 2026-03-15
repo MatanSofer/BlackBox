@@ -274,31 +274,45 @@ KnownPlace {
 A vertically scrolling feed of cards:
 - **Today hero**: Big step count with gradient, plus Screen time / Places visited / Top app mini-cards
 - **Screen time today**: Per-app breakdown with progress bars (top 5 apps)
+- **This week**: Section label
 - **Steps trend**: 7-day bar chart, tappable bars
 - **Screen time trend**: 7-day bar chart
 - **Sleep trend**: 7-day bar chart, tappable bars expand to show bedtime/wake time
-- **Top places + Top apps**: Two side-by-side ranking cards
-- **Top contacts this week**: Ranked list of contacts (display name, call count, total duration, missed count)
+- **Rankings** section with a **7 days / 30 days** chip selector:
+  - **Top places + Top apps**: Two side-by-side ranking cards
+  - **Top contacts**: Ranked list (display name, call count, total duration, missed count)
 - **Observations**: AI-generated text observations (lazy-loaded)
 - **Averages footer**: Avg steps, avg screen time, avg sleep, best step day
+
+### Ranking period selector
+Above the top places / top apps / top contacts cards, a compact chip row lets the user switch between **7 days** and **30 days**. The selected chip is highlighted in indigo. Switching period re-fetches only the ranking data — the 7-bar trend charts above are unaffected and always show exactly one week.
+
+The selected period is stored as `InsightsContract.RankingPeriod` in the MVI state:
+```kotlin
+enum class RankingPeriod(val days: Int, val label: String) {
+    WEEK(7, "7 days"),
+    MONTH(30, "30 days"),
+}
+```
+`InsightsContract.Action.RankingPeriodChanged(period)` triggers `GetInsightsBriefUseCase(rankingDays = period.days)`.
 
 ### Data sources
 All data for this screen comes from `GetInsightsBriefUseCase`:
 
-| Card | Source |
-|------|--------|
-| Today steps | Hardware step counter (SensorEvent TYPE_STEP_COUNTER) |
-| Today screen time | Raw SCREEN_STATE records, sum of ON→OFF gaps |
-| Today places count | Distinct addresses from LocationRecord today |
-| Today top app | APP_USAGE records today, sum session durations, top 1 |
-| Screen time breakdown | APP_USAGE records today, top 5 (with orphaned-tail + gap-fill) |
-| Step trend (7 days) | Raw ACTIVITY records grouped by day — always 7 entries |
-| Screen trend (7 days) | Raw SCREEN_STATE records grouped by day — always 7 entries |
-| Sleep trend (7 nights) | `DetectSleepSessionsUseCase.getWeekTrend()` — always 7 entries, null = no detection |
-| Top places (week) | LocationRecord.address, grouped by distinct days |
-| Top apps (week) | APP_USAGE records, grouped by app, sum durations (with orphaned-tail + gap-fill) |
-| Top contacts (week) | CALL_LOG records grouped by `numberHash`; display name from `contactName` when available |
-| Observations | GenerateInsightObservationsUseCase (AI or rule-based) |
+| Card | Always / Configurable | Source |
+|------|-----------------------|--------|
+| Today steps | Always today | Hardware step counter (SensorEvent TYPE_STEP_COUNTER) |
+| Today screen time | Always today | Raw SCREEN_STATE records, sum of ON→OFF gaps |
+| Today places count | Always today | Distinct addresses from LocationRecord today |
+| Today top app | Always today | APP_USAGE records today, sum session durations, top 1 |
+| Screen time breakdown | Always today | APP_USAGE records today, top 5 (orphaned-tail + gap-fill) |
+| Step trend | Always 7 days | Raw ACTIVITY records grouped by day — always 7 entries |
+| Screen trend | Always 7 days | Raw SCREEN_STATE records grouped by day — always 7 entries |
+| Sleep trend | Always 7 nights | `DetectSleepSessionsUseCase.getWeekTrend()` — 7 entries, null = no detection |
+| Top places | **Configurable** (7 or 30 days) | LocationRecord.address, grouped by distinct days |
+| Top apps | **Configurable** (7 or 30 days) | APP_USAGE records, grouped by app, sum durations (orphaned-tail + gap-fill) |
+| Top contacts | **Configurable** (7 or 30 days) | CALL_LOG records grouped by `numberHash`; display name from `contactName` |
+| Observations | — | GenerateInsightObservationsUseCase (AI or rule-based) |
 
 > **Design note:** All weekly trends are computed from raw records rather than `DailySummary` rows.
 > This guarantees exactly 7 bars in every chart even if `DailySummaryWorker` missed a day.

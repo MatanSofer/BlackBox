@@ -351,7 +351,9 @@ Each place row shows two action buttons:
 
 **Data guarantees:** All three weekly charts (Steps, Screen Time, Sleep) always render exactly 7 bars — one per day. Data is sourced from raw collector records rather than pre-computed DailySummary rows, so the charts are never missing bars due to a missed nightly worker run. Sleep bars for nights with no detectable data render at 20% height in muted gray (rather than disappearing); only non-null bars are tappable.
 
-**Top contacts card:** When CALL_LOG data is available, a `TopContactsCard` appears below the top places / top apps row, showing up to 5 contacts ranked by call count. Each row shows display name (or "Unknown" for unsaved numbers), call count, total duration, and missed call count. No additional permissions beyond `READ_CALL_LOG` are needed — contact names come from `CallLog.Calls.CACHED_NAME`.
+**Ranking period selector:** A compact "7 days / 30 days" chip row appears above the ranking cards (Top places, Top apps, Top contacts). The selected chip is highlighted in indigo. Switching period re-fetches ranking data only — the trend bar charts above are unaffected.
+
+**Top contacts card:** When CALL_LOG data is available, a `TopContactsCard` appears below the top places / top apps row, showing up to 5 contacts ranked by call count for the selected period. Each row shows display name (or "Unknown" for unsaved numbers), call count, total duration, and missed call count. No additional permissions beyond `READ_CALL_LOG` are needed — contact names come from `CallLog.Calls.CACHED_NAME`.
 
 **Layout:**
 ```
