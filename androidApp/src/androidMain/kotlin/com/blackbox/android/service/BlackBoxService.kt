@@ -128,11 +128,24 @@ class BlackBoxService : Service() {
                 // Fall back to DATA_SYNC only so the service keeps running; the location collector
                 // will be inactive until the service is restarted from a foreground context.
                 logger.w(TAG, "startForeground with location type failed, retrying as dataSync only", e)
-                startForeground(
-                    NOTIFICATION_ID,
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
-                )
+                try {
+                    startForeground(
+                        NOTIFICATION_ID,
+                        notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+                    )
+                } catch (e2: Exception) {
+                    // DATA_SYNC quota exhausted (Android 15 ForegroundServiceStartNotAllowedException)
+                    // or another restriction. Stop cleanly rather than crash.
+                    logger.w(TAG, "startForeground dataSync fallback also failed, stopping service", e2)
+                    stopSelf()
+                }
+            } catch (e: Exception) {
+                // ForegroundServiceStartNotAllowedException (API 31+, subclass of IllegalStateException):
+                // the daily DATA_SYNC quota (6 h on Android 15) has been exhausted.
+                // Stop cleanly rather than letting the exception propagate and crash the app.
+                logger.w(TAG, "startForeground failed, stopping service gracefully", e)
+                stopSelf()
             }
         } else {
             startForeground(NOTIFICATION_ID, notification)

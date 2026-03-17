@@ -301,7 +301,7 @@ class GetInsightsBriefUseCase(
             .filter { !it.isSystemApp && it.displayName.isNotBlank() && !isBlockedPackage(it.foregroundApp) }
             .mapNotNull { data ->
                 val label = cleanAppDisplayName(data.displayName)
-                if (label.length < 2 || label.lowercase() in GENERIC_APP_SEGMENTS) null
+                if (label.length < 2 || label.lowercase() in GENERIC_APP_SEGMENTS || label.lowercase() in BLOCKED_APP_LABELS) null
                 else label to data
             }
 
@@ -470,13 +470,30 @@ class GetInsightsBriefUseCase(
             if (data.callType == CallType.MISSED || data.callType == CallType.REJECTED) acc.missed++
         }
 
-        return byHash.entries
-            .sortedByDescending { it.value.total }
+        // ── Merge entries with the same display name (one person, multiple phone numbers) ──
+        // "Unknown" entries are kept separate since we can't tell if they're the same person.
+        val merged = mutableMapOf<String, Acc>()
+        var unknownIndex = 0
+        byHash.values.forEach { acc ->
+            val key = if (acc.displayName == "Unknown") "Unknown_${unknownIndex++}" else acc.displayName
+            val existing = merged[key]
+            if (existing == null) {
+                merged[key] = acc.copy()
+            } else {
+                existing.total       += acc.total
+                existing.durationSec += acc.durationSec
+                existing.missed      += acc.missed
+            }
+        }
+
+        return merged.values
+            .sortedByDescending { it.total }
             .take(limit)
-            .map { (hash, acc) ->
+            .map { acc ->
                 ContactCallStat(
                     displayName = acc.displayName,
-                    numberHash = hash,
+                    // numberHash is meaningless for merged multi-number entries; use display name as stable key
+                    numberHash = acc.displayName,
                     totalCalls = acc.total,
                     totalDurationSeconds = acc.durationSec,
                     missedCount = acc.missed,
@@ -577,9 +594,20 @@ class GetInsightsBriefUseCase(
             "com.android.cellbroadcastreceiver",
             "com.android.cellbroadcastservice",
             "com.google.android.cellbroadcastreceiver",
-            // OEM clock/alarm background services (not the Clock UI app)
+            // Clock / Alarm — AOSP, Google, and OEM variants
+            "com.android.deskclock",
+            "com.google.android.deskclock",
+            "com.android.alarmclock",
             "com.samsung.android.app.clockpackage",
+            "com.sec.android.app.clockpackage",
+            "com.samsung.android.deskclock",
             "com.huawei.android.clockpackage",
+            "com.miui.clock",
+            "com.oneplus.deskclock",
+            "com.coloros.alarmclock",
+            // Calendar background services
+            "com.android.providers.calendar",
+            "com.google.android.calendar",
             // Core Android background components
             "com.android.phone",
             "com.android.systemui",
@@ -601,6 +629,20 @@ class GetInsightsBriefUseCase(
             "core", "framework", "system", "provider", "manager", "helper",
             "activity", "feature", "module", "lib", "library", "common", "base",
             "internal", "impl", "utils", "util", "data", "api",
+        )
+
+        /**
+         * Cleaned display-name labels (lowercase) that are known system component names
+         * and must never appear in user-facing lists, even when [SYSTEM_PACKAGE_BLOCKLIST]
+         * doesn't cover a particular OEM's package name variant.
+         *
+         * These are the labels produced by [cleanAppDisplayName] when the PackageManager
+         * falls back to returning the raw package name (e.g. "com.*.clockpackage" → "Clockpackage").
+         */
+        private val BLOCKED_APP_LABELS = setOf(
+            "clockpackage",   // com.samsung.android.app.clockpackage / com.sec.android.app.clockpackage
+            "deskclock",      // com.android.deskclock / com.google.android.deskclock
+            "alarmclock",     // com.android.alarmclock
         )
     }
 }
