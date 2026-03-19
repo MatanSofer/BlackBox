@@ -338,6 +338,7 @@ class GetInsightsBriefUseCase(
         // Phase 3: Gap fill for screen-on intervals with no app records
         // Only applies to intervals that completed >= 1 hour ago (not in-progress).
         val screenIntervals = buildScreenIntervals(screenRecords, windowEndMs)
+        val gapFillAdded = mutableMapOf<String, Long>()
         for ((intStart, intEnd) in screenIntervals) {
             if (intEnd >= nowMs - HOUR_MS) continue
             val intDurationMs = intEnd - intStart
@@ -355,8 +356,12 @@ class GetInsightsBriefUseCase(
 
             if (preceding != null) {
                 val (precLabel, _) = preceding
-                val gapMs = minOf(intDurationMs, GAP_FILL_CAP_MS)
+                val alreadyAdded = gapFillAdded[precLabel] ?: 0L
+                val remaining = GAP_FILL_TOTAL_CAP_MS - alreadyAdded
+                if (remaining <= 0) continue
+                val gapMs = minOf(intDurationMs, GAP_FILL_CAP_MS, remaining)
                 appTotalsMs[precLabel] = (appTotalsMs[precLabel] ?: 0L) + gapMs
+                gapFillAdded[precLabel] = alreadyAdded + gapMs
             }
         }
 
@@ -533,7 +538,7 @@ class GetInsightsBriefUseCase(
 
         // Phase 2 (orphaned tail) constants
         /** Cap on how far past the last app record to attribute time. */
-        private const val ORPHAN_CAP_MS  = 30 * 60_000L
+        private const val ORPHAN_CAP_MS  = 10 * 60_000L
         /** Minimum orphan duration worth attributing. */
         private const val MIN_ORPHAN_MS  = 60_000L
 
@@ -541,9 +546,11 @@ class GetInsightsBriefUseCase(
         /** Minimum screen-on interval duration to attempt attribution. */
         private const val GAP_FILL_MIN_MS      = 5 * 60_000L
         /** Maximum time to attribute to a single gap attribution. */
-        private const val GAP_FILL_CAP_MS      = 60 * 60_000L
+        private const val GAP_FILL_CAP_MS      = 15 * 60_000L
         /** How far back to look for a preceding app record when filling a gap. */
-        private const val GAP_FILL_LOOKBACK_MS = 15 * 60_000L
+        private const val GAP_FILL_LOOKBACK_MS = 5 * 60_000L
+        /** Maximum total time attributable to any one app via gap fill across all gaps. */
+        private const val GAP_FILL_TOTAL_CAP_MS = 30 * 60_000L
 
         /** Canonical labels for the most common apps whose package names are ambiguous. */
         private val KNOWN_PACKAGES = mapOf(
